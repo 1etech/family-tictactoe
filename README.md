@@ -1,5 +1,10 @@
 # Family Tic Tac Toe
 
+**Play: https://1etech.github.io/family-tictactoe/**
+
+Send that link to anyone. It is permanent, free, and nothing needs to be running
+on anybody's computer.
+
 A real-time tic tac toe game you share with a link. Two people play, anyone else
 who opens the link watches. No accounts, no app, no code to type — everyone who
 opens the bare URL lands in the same room.
@@ -13,19 +18,24 @@ There are **two builds in here**. The serverless one is the one to deploy.
 | Rules enforced by | each browser | the server |
 | Status | **what you deploy** | kept, working, unused |
 
-## Deploy the free version
+## Deploy
+
+The live site is GitHub Pages, served from `docs/` on `main`. Pushing to `main`
+republishes it within about a minute:
 
 ```bash
-npx wrangler login     # free Cloudflare account; opens your browser once
+git push
+```
+
+It can also go to Cloudflare Workers as static assets, on the free tier:
+
+```bash
+npx wrangler login
 npm run deploy
 ```
 
-Wrangler prints a URL like `https://family-tictactoe.<your-subdomain>.workers.dev`.
-That is the link to send round, and it does not expire. Later deploys update it
-in place. To change the address, edit `name` in `wrangler.static.jsonc`.
-
-This deploys **static files only** — no Worker script, no Durable Object — which
-is what keeps it on the free tier.
+Either way this is **static files only** — no Worker script, no Durable Object —
+which is what keeps it free.
 
 ## How it works without a server
 
