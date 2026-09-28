@@ -1,0 +1,25 @@
+{
+  "name": "family-tictactoe",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "preview": "node tools/preview.mjs",
+    "deploy": "wrangler deploy -c wrangler.static.jsonc",
+    "test:sync": "node test/serverless-sync.mjs",
+    "opponent": "node tools/opponent.mjs",
+    "dev:server": "node server.mjs 8788",
+    "test:server": "vitest run",
+    "deploy:server": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.9.0",
+    "typescript": "^5.7.0",
+    "vitest": "~3.2.0",
+    "wrangler": "^4.136.0"
+  },
+  "dependencies": {
+    "mqtt": "^5.16.0",
+    "ws": "^8.21.3"
+  }
+}

@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="color-scheme" content="light dark" />
+<title>Family Tic Tac Toe</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✳️</text></svg>" />
+<style>
+  :root {
+    --bg: #f6f1e8;
+    --panel: #fffdf9;
+    --ink: #2b2520;
+    --muted: #7a6e63;
+    --line: #e2d6c5;
+    --x: #c2410c;
+    --o: #0f766e;
+    --accent: #7c3aed;
+    --accent-ink: #ffffff;
+    --win: #fde68a;
+    --shadow: 0 1px 2px rgba(43, 37, 32, .06), 0 8px 24px rgba(43, 37, 32, .08);
+    --radius: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #17140f;
+      --panel: #211d17;
+      --ink: #f0e9df;
+      --muted: #a2968a;
+      --line: #3a3229;
+      --x: #fb923c;
+      --o: #2dd4bf;
+      --accent: #a78bfa;
+      --accent-ink: #1b1510;
+      --win: #4d3f12;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #17140f;
+    --panel: #211d17;
+    --ink: #f0e9df;
+    --muted: #a2968a;
+    --line: #3a3229;
+    --x: #fb923c;
+    --o: #2dd4bf;
+    --accent: #a78bfa;
+    --accent-ink: #1b1510;
+    --win: #4d3f12;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.5 ui-rounded, "Segoe UI", system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: clamp(16px, 4vw, 40px) 16px 40px;
+    gap: 20px;
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(24px, 6vw, 34px);
+    letter-spacing: -.02em;
+    text-align: center;
+  }
+  h1 small {
+    display: block;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--muted);
+    letter-spacing: 0;
+    margin-top: 4px;
+  }
+
+  .panel {
+    width: 100%;
+    max-width: 440px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 20px;
+  }
+
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 12px 14px;
+    font: inherit;
+    color: var(--ink);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  input[type="text"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  button {
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 12px 16px;
+    transition: transform .06s ease, filter .15s ease;
+  }
+  button:hover:not(:disabled) { filter: brightness(1.04); }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+
+  .row { display: flex; gap: 10px; }
+  .row > * { flex: 1; }
+  .stack { display: flex; flex-direction: column; gap: 14px; }
+  .divider { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+  #code-input { text-transform: uppercase; letter-spacing: .3em; font-weight: 700; text-align: center; }
+
+  #game { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 16px; }
+
+  .roombar {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px 14px; box-shadow: var(--shadow);
+  }
+  .roombar .code { font-size: 22px; font-weight: 800; letter-spacing: .22em; }
+  .roombar .code-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .roombar button { padding: 9px 12px; font-size: 14px; }
+
+  .scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; }
+  .side {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 12px; text-align: center; box-shadow: var(--shadow); min-width: 0;
+  }
+  .side.active { border-color: currentColor; }
+  .side.x { color: var(--x); }
+  .side.o { color: var(--o); }
+  .side .mark { font-size: 26px; font-weight: 800; line-height: 1; }
+  .side .who {
+    font-size: 13px; font-weight: 600; color: var(--ink); margin-top: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .side .who.empty { color: var(--muted); font-weight: 400; font-style: italic; }
+  .side .score { font-size: 20px; font-weight: 700; color: var(--ink); margin-top: 6px; }
+  .side .away { font-size: 11px; color: var(--muted); }
+  .side button { margin-top: 8px; width: 100%; padding: 7px; font-size: 13px; }
+  .draws { align-self: center; text-align: center; color: var(--muted); font-size: 12px; padding: 0 4px; }
+  .draws b { display: block; font-size: 18px; color: var(--ink); }
+
+  #status { text-align: center; font-weight: 600; min-height: 24px; }
+  #status.win { color: var(--accent); }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    aspect-ratio: 1;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 8px;
+    box-shadow: var(--shadow);
+  }
+  .cell {
+    border: none;
+    border-radius: 10px;
+    background: var(--bg);
+    font-size: clamp(34px, 13vw, 58px);
+    font-weight: 800;
+    line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    transition: background .15s ease;
+  }
+  .cell.x { color: var(--x); }
+  .cell.o { color: var(--o); }
+  .cell.win { background: var(--win); }
+  .cell.playable:hover { background: var(--line); }
+  .cell:disabled { cursor: default; opacity: 1; }
+
+  .actions { display: flex; gap: 10px; }
+  .actions button { flex: 1; }
+
+  #notice { text-align: center; font-size: 14px; color: var(--x); min-height: 20px; }
+
+  details.chat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+  details.chat > summary { padding: 12px 14px; cursor: pointer; font-weight: 600; font-size: 14px; list-style: none; }
+  details.chat > summary::-webkit-details-marker { display: none; }
+  details.chat > summary::after { content: " ▾"; color: var(--muted); }
+  details.chat[open] > summary::after { content: " ▴"; }
+  #messages { max-height: 190px; overflow-y: auto; padding: 0 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+  #messages .msg b { font-weight: 700; }
+  #messages .sys { color: var(--muted); font-style: italic; font-size: 13px; }
+  .chat-form { display: flex; gap: 8px; padding: 12px 14px; }
+  .chat-form input { flex: 1; }
+  .chat-form button { flex: 0 0 auto; }
+
+  #watchers { text-align: center; font-size: 13px; color: var(--muted); }
+
+  .conn { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .conn.live .dot { background: var(--o); }
+  .conn.down .dot { background: var(--x); }
+
+  [hidden] { display: none !important; }
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Family Tic Tac Toe
+  <small>One link. Everyone plays, wherever they are.</small>
+</h1>
+
+<section id="lobby" class="panel">
+  <div class="stack">
+    <div>
+      <label for="name-input">Your name</label>
+      <input id="name-input" type="text" maxlength="20" placeholder="Grandma" autocomplete="nickname" />
+    </div>
+
+    <button id="family-btn" class="primary">Join the family game</button>
+
+    <div class="divider">or</div>
+
+    <button id="create-btn">Start a separate game</button>
+
+    <form id="join-form" class="row">
+      <input id="code-input" type="text" maxlength="4" placeholder="CODE"
+             inputmode="latin" autocomplete="off" autocapitalize="characters"
+             aria-label="Room code" />
+      <button type="submit">Join</button>
+    </form>
+
+    <p id="lobby-error" class="sr-only" role="alert"></p>
+  </div>
+</section>
+
+<section id="game" hidden>
+  <div class="roombar">
+    <div>
+      <div class="code-label">Room code</div>
+      <div class="code" id="room-code">----</div>
+    </div>
+    <div class="row" style="flex:0 0 auto">
+      <button id="share-btn">Copy link</button>
+      <button id="leave-btn">Leave</button>
+    </div>
+  </div>
+
+  <div class="scoreboard">
+    <div class="side x" id="side-x">
+      <div class="mark">X</div>
+      <div class="who empty" id="name-x">open seat</div>
+      <div class="away" id="away-x" hidden>away…</div>
+      <div class="score" id="score-x">0</div>
+      <button id="sit-x" hidden>Take this seat</button>
+    </div>
+
+    <div class="draws">draws<b id="score-draws">0</b></div>
+
+    <div class="side o" id="side-o">
+      <div class="mark">O</div>
+      <div class="who empty" id="name-o">open seat</div>
+      <div class="away" id="away-o" hidden>away…</div>
+      <div class="score" id="score-o">0</div>
+      <button id="sit-o" hidden>Take this seat</button>
+    </div>
+  </div>
+
+  <div id="status" role="status" aria-live="polite">Connecting…</div>
+
+  <div class="board" id="board" role="grid" aria-label="Tic tac toe board"></div>
+
+  <div id="notice" role="alert"></div>
+
+  <div class="actions">
+    <button id="rematch-btn" class="primary" disabled>Play again</button>
+    <button id="reset-btn">Reset score</button>
+  </div>
+
+  <div id="watchers"></div>
+
+  <details class="chat">
+    <summary>Chat</summary>
+    <div id="messages" aria-live="polite"></div>
+    <form class="chat-form" id="chat-form">
+      <input id="chat-input" type="text" maxlength="200" placeholder="Say something…" autocomplete="off" />
+      <button type="submit">Send</button>
+    </form>
+  </details>
+
+  <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">connecting…</span></div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script>
+(() => {
+  "use strict";
+
+  // This build has no server of its own. The two browsers exchange the whole
+  // game state through a public message broker, and the page itself is a
+  // static file. Nothing here depends on a machine we run.
+
+  const DEFAULT_ROOM = "PLA4";
+  const BROKERS = [
+    "wss://broker.emqx.io:8084/mqtt",
+    "wss://test.mosquitto.org:8081/mqtt",
+    "wss://broker.hivemq.com:8884/mqtt",
+  ];
+
+  const PRESENCE_EVERY_MS = 8000;
+  const PEER_STALE_MS = 22000;   // no heartbeat for this long => shown as away
+  const SEAT_GRACE_MS = 120000;  // away this long => seat opens for someone else
+  const MAX_CHAT = 40;
+
+  // --- rules (the same three functions the server build used) --------------
+  const LINES = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6],
+  ];
+  const emptyBoard = () => Array(9).fill(null);
+
+  function evaluate(board) {
+    for (const line of LINES) {
+      const [a, b, c] = line;
+      if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+        return { winner: board[a], line, draw: false };
+      }
+    }
+    return { winner: null, line: null, draw: board.every((cell) => cell !== null) };
+  }
+
+  function turnFor(board, startingMark) {
+    const played = board.filter((cell) => cell !== null).length;
+    const other = startingMark === "X" ? "O" : "X";
+    return played % 2 === 0 ? startingMark : other;
+  }
+
+  const isLegalMove = (board, i) => Number.isInteger(i) && i >= 0 && i < 9 && board[i] === null;
+
+  // --- identity ------------------------------------------------------------
+  const store = {
+    get(key, fallback) { try { return localStorage.getItem(key) ?? fallback; } catch { return fallback; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch {} },
+  };
+
+  let playerId = store.get("ttt:playerId", "");
+  if (!playerId) {
+    playerId = crypto.randomUUID?.() ?? String(Math.random()).slice(2) + Date.now();
+    store.set("ttt:playerId", playerId);
+  }
+  let playerName = store.get("ttt:name", "");
+
+  const CONTROL_CHARS = /[\p{Cc}\p{Cf}]/gu;
+  const WHITESPACE = /\s+/g;
+  const clean = (value, max) =>
+    typeof value !== "string" ? "" :
+    value.replace(CONTROL_CHARS, " ").replace(WHITESPACE, " ").trim().slice(0, max);
+
+  // --- elements ------------------------------------------------------------
+  const $ = (id) => document.getElementById(id);
+  const lobby = $("lobby"), game = $("game");
+  const nameInput = $("name-input"), codeInput = $("code-input");
+  const boardEl = $("board"), statusEl = $("status"), noticeEl = $("notice");
+  const connEl = $("conn"), connText = $("conn-text");
+  const messagesEl = $("messages"), watchersEl = $("watchers");
+  const rematchBtn = $("rematch-btn"), resetBtn = $("reset-btn");
+  const lobbyError = $("lobby-error");
+
+  nameInput.value = playerName;
+
+  const cells = [];
+  for (let i = 0; i < 9; i++) {
+    const cell = document.createElement("button");
+    cell.className = "cell";
+    cell.type = "button";
+    cell.setAttribute("aria-label", `Square ${i + 1}, empty`);
+    cell.addEventListener("click", () => play(i));
+    boardEl.appendChild(cell);
+    cells.push(cell);
+  }
+
+  // --- shared state --------------------------------------------------------
+  /**
+   * Every client holds the whole game. A change bumps `v` and is republished
+   * retained, so whoever joins next is handed the current board. When two
+   * clients publish the same version, the lower `by` wins so that every client
+   * independently reaches the same answer.
+   */
+  let state = null;
+  let client = null;
+  let roomCode = null;
+  let topicState = null, topicWho = null;
+  let peers = new Map();       // playerId -> { name, at }
+  let heartbeat = null, sweeper = null;
+  let brokerIndex = 0;
+  let claimAttempts = 0;
+
+  const freshState = () => ({
+    v: 1,
+    by: playerId,
+    board: emptyBoard(),
+    startingMark: "X",
+    winner: null,
+    line: null,
+    draw: false,
+    round: 1,
+    scores: { X: 0, O: 0, draws: 0 },
+    seats: { X: null, O: null },
+    chat: [],
+    nextChatId: 1,
+  });
+
+  const seatOf = (id) =>
+    state?.seats.X?.id === id ? "X" : state?.seats.O?.id === id ? "O" : null;
+  const mySeat = () => seatOf(playerId);
+  const bothSeated = () => !!(state?.seats.X && state?.seats.O);
+  const isOver = () => !!(state && (state.winner || state.draw));
+  const peerOnline = (id) => Date.now() - (peers.get(id)?.at ?? 0) < PEER_STALE_MS;
+
+  /** Publishes the local state as the new truth. */
+  function commit(mutate) {
+    if (!state || !client) return;
+    mutate(state);
+    state.v += 1;
+    state.by = playerId;
+    client.publish(topicState, JSON.stringify(state), { retain: true, qos: 1 });
+    render();
+  }
+
+  function adopt(incoming) {
+    if (!incoming || typeof incoming.v !== "number") return;
+    if (state) {
+      // Older loses; same version is broken by publisher id so all clients agree.
+      if (incoming.v < state.v) return;
+      if (incoming.v === state.v && incoming.by >= state.by) return;
+    }
+    state = incoming;
+    render();
+  }
+
+  function pushChat(target, name, text) {
+    target.chat.push({ id: target.nextChatId++, name, text, at: Date.now() });
+    if (target.chat.length > MAX_CHAT) target.chat = target.chat.slice(-MAX_CHAT);
+  }
+
+  // --- actions -------------------------------------------------------------
+  function play(index) {
+    const mark = mySeat();
+    if (!mark) return flash("You are watching this game, not playing it.");
+    if (!bothSeated()) return flash("Waiting for a second player.");
+    if (isOver()) return flash("That round is finished — start a rematch.");
+    if (turnFor(state.board, state.startingMark) !== mark) return flash("It is not your turn.");
+    if (!isLegalMove(state.board, index)) return flash("That square is taken.");
+
+    commit((s) => {
+      s.board[index] = mark;
+      const outcome = evaluate(s.board);
+      s.winner = outcome.winner;
+      s.line = outcome.line ? [...outcome.line] : null;
+      s.draw = outcome.draw;
+      if (outcome.winner) s.scores[outcome.winner] += 1;
+      else if (outcome.draw) s.scores.draws += 1;
+    });
+  }
+
+  function rematch() {
+    if (!mySeat() || !isOver()) return;
+    commit((s) => {
+      s.board = emptyBoard();
+      s.winner = null;
+      s.line = null;
+      s.draw = false;
+      s.round += 1;
+      // Alternate the opening move so neither seat keeps the first-move advantage.
+      s.startingMark = s.startingMark === "X" ? "O" : "X";
+    });
+  }
+
+  function claimSeat(seat) {
+    if (!state || mySeat() || state.seats[seat]) return;
+    commit((s) => {
+      s.seats[seat] = { id: playerId, name: playerName || "Player" };
+      pushChat(s, "", `${playerName || "Player"} joined as ${seat}.`);
+    });
+  }
+
+  function standUp() {
+    const mark = mySeat();
+    if (!mark) return;
+    commit((s) => {
+      const { name } = s.seats[mark];
+      s.seats[mark] = null;
+      pushChat(s, "", `${name} gave up the ${mark} seat.`);
+    });
+  }
+
+  let noticeTimer = null;
+  function flash(message) {
+    noticeEl.textContent = message;
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => { noticeEl.textContent = ""; }, 3000);
+  }
+
+  // --- connection ----------------------------------------------------------
+  /** Keeps the room code out of the broker's plain topic list. */
+  async function topicFor(code) {
+    const bytes = new TextEncoder().encode("family-tictactoe-v1:" + code);
+    const digest = await crypto.subtle.digest("SHA-256", bytes);
+    return [...new Uint8Array(digest)].slice(0, 10).map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  function setConn(kind, text) {
+    connEl.className = "conn " + kind;
+    connText.textContent = text;
+  }
+
+  async function connect(code) {
+    roomCode = code;
+    $("room-code").textContent = code;
+    lobby.hidden = true;
+    game.hidden = false;
+    setConn("", "connecting…");
+
+    const key = await topicFor(code);
+    topicState = `ttt/${key}/state`;
+    topicWho = `ttt/${key}/who`;
+
+    openBroker();
+  }
+
+  function openBroker() {
+    const url = BROKERS[brokerIndex % BROKERS.length];
+    client = mqtt.connect(url, {
+      clientId: "ttt_" + Math.random().toString(16).slice(2, 10),
+      clean: true,
+      connectTimeout: 8000,
+      reconnectPeriod: 4000,
+    });
+
+    client.on("connect", () => {
+      setConn("live", "connected");
+      client.subscribe([topicState, topicWho], { qos: 1 });
+
+      announce();
+      clearInterval(heartbeat);
+      heartbeat = setInterval(announce, PRESENCE_EVERY_MS);
+
+      clearInterval(sweeper);
+      sweeper = setInterval(sweep, 5000);
+
+      // Give the retained state a moment to arrive before assuming an empty room.
+      setTimeout(settleIn, 1800);
+    });
+
+    client.on("message", (topic, payload) => {
+      let msg;
+      try { msg = JSON.parse(payload.toString()); } catch { return; }
+
+      if (topic === topicWho) {
+        if (msg.id && msg.id !== playerId) peers.set(msg.id, { name: msg.name, at: Date.now() });
+        else if (msg.id === playerId) peers.set(playerId, { name: playerName, at: Date.now() });
+        render();
+        return;
+      }
+      if (topic === topicState) adopt(msg);
+    });
+
+    client.on("reconnect", () => setConn("down", "reconnecting…"));
+    client.on("offline", () => setConn("down", "offline"));
+
+    client.on("error", () => {
+      // A broker can be busy or blocked on some networks; try the next one.
+      setConn("down", "switching server…");
+      try { client.end(true); } catch {}
+      brokerIndex += 1;
+      if (brokerIndex < BROKERS.length * 2) setTimeout(openBroker, 500);
+      else setConn("down", "cannot reach any server");
+    });
+  }
+
+  function announce() {
+    if (!client?.connected) return;
+    peers.set(playerId, { name: playerName, at: Date.now() });
+    client.publish(topicWho, JSON.stringify({ id: playerId, name: playerName || "Player" }), { qos: 0 });
+  }
+
+  /** First look at the room: create it, reclaim a seat, or take a free one. */
+  function settleIn() {
+    if (!state) {
+      state = freshState();
+      state.seats.X = { id: playerId, name: playerName || "Player" };
+      pushChat(state, "", `${playerName || "Player"} joined as X.`);
+      client.publish(topicState, JSON.stringify(state), { retain: true, qos: 1 });
+      render();
+      return;
+    }
+
+    const mark = mySeat();
+    if (mark) {
+      // Reclaim after a refresh: refresh the stored name if it changed.
+      if (state.seats[mark].name !== (playerName || "Player")) {
+        commit((s) => { s.seats[mark].name = playerName || "Player"; });
+      }
+      return;
+    }
+    const free = ["X", "O"].find((seat) => !state.seats[seat]);
+    if (free) claimSeat(free);
+    render();
+  }
+
+  /**
+   * Two clients can claim the same seat at once; the version tiebreak means one
+   * of them loses. The loser notices here and takes whatever is left.
+   */
+  function sweep() {
+    if (!state) return;
+
+    if (!mySeat() && claimAttempts < 3) {
+      const free = ["X", "O"].find((seat) => !state.seats[seat]);
+      if (free) { claimAttempts += 1; claimSeat(free); }
+    }
+
+    // Free a seat whose holder has been gone a while. Only the lowest-id client
+    // present does it, so everyone does not publish the same change at once.
+    const online = [...peers.entries()]
+      .filter(([, p]) => Date.now() - p.at < PEER_STALE_MS)
+      .map(([id]) => id)
+      .sort();
+    if (online[0] !== playerId) return render();
+
+    for (const seat of ["X", "O"]) {
+      const holder = state.seats[seat];
+      if (!holder || holder.id === playerId) continue;
+      const lastSeen = peers.get(holder.id)?.at ?? 0;
+      if (Date.now() - lastSeen > SEAT_GRACE_MS) {
+        commit((s) => {
+          const name = s.seats[seat]?.name ?? "Someone";
+          s.seats[seat] = null;
+          pushChat(s, "", `${name} left the game.`);
+        });
+        return;
+      }
+    }
+    render();
+  }
+
+  function disconnect() {
+    clearInterval(heartbeat);
+    clearInterval(sweeper);
+    try { client?.end(true); } catch {}
+    client = null;
+    state = null;
+    peers = new Map();
+    claimAttempts = 0;
+  }
+
+  // --- rendering -----------------------------------------------------------
+  function render() {
+    if (!state) return;
+
+    const you = mySeat();
+    const turn = turnFor(state.board, state.startingMark);
+    const ready = bothSeated();
+    const over = isOver();
+    const yourTurn = you !== null && turn === you && ready && !over;
+
+    state.board.forEach((mark, i) => {
+      const cell = cells[i];
+      cell.textContent = mark ?? "";
+      const playable = yourTurn && mark === null;
+      cell.className = "cell"
+        + (mark === "X" ? " x" : mark === "O" ? " o" : "")
+        + (state.line?.includes(i) ? " win" : "")
+        + (playable ? " playable" : "");
+      cell.disabled = !playable;
+      cell.setAttribute("aria-label", `Square ${i + 1}, ${mark ?? "empty"}`);
+    });
+
+    for (const mark of ["X", "O"]) {
+      const seat = state.seats[mark];
+      const lower = mark.toLowerCase();
+      const nameEl = $(`name-${lower}`);
+      nameEl.textContent = seat ? seat.name : "open seat";
+      nameEl.classList.toggle("empty", !seat);
+      $(`away-${lower}`).hidden = !seat || seat.id === playerId || peerOnline(seat.id);
+      $(`score-${lower}`).textContent = state.scores[mark];
+      $(`side-${lower}`).classList.toggle("active", turn === mark && ready && !over);
+      $(`sit-${lower}`).hidden = !(seat === null && you === null);
+    }
+    $("score-draws").textContent = state.scores.draws;
+
+    let text, isWin = false;
+    if (!ready) {
+      text = "Waiting for another player — share the link.";
+    } else if (over) {
+      isWin = true;
+      if (state.draw) text = "Draw. Nobody blinked.";
+      else {
+        const winner = state.seats[state.winner];
+        text = you === state.winner
+          ? `You win as ${state.winner}!`
+          : `${winner ? winner.name : state.winner} wins as ${state.winner}!`;
+      }
+    } else if (you === null) {
+      const upNext = state.seats[turn];
+      text = `Watching — ${upNext ? upNext.name : turn} to move.`;
+    } else if (yourTurn) {
+      text = `Your turn (${you})`;
+    } else {
+      const other = state.seats[turn];
+      text = `${other ? other.name : turn} is thinking…`;
+    }
+    statusEl.textContent = text;
+    statusEl.classList.toggle("win", isWin);
+
+    rematchBtn.disabled = !(over && you !== null);
+    resetBtn.disabled = you === null;
+
+    const seatedIds = new Set([state.seats.X?.id, state.seats.O?.id].filter(Boolean));
+    const onlookers = [...peers.entries()]
+      .filter(([id, p]) => !seatedIds.has(id) && Date.now() - p.at < PEER_STALE_MS)
+      .map(([, p]) => p.name || "Someone");
+    watchersEl.textContent = onlookers.length ? `Watching: ${onlookers.join(", ")}` : "";
+
+    renderChat(state.chat);
+  }
+
+  let lastChatId = 0;
+  function renderChat(chat) {
+    const newest = chat.length ? chat[chat.length - 1].id : 0;
+    if (newest === lastChatId) return;
+    lastChatId = newest;
+
+    messagesEl.replaceChildren();
+    for (const message of chat) {
+      const line = document.createElement("div");
+      if (message.name) {
+        line.className = "msg";
+        const who = document.createElement("b");
+        who.textContent = message.name + ": ";
+        line.append(who, document.createTextNode(message.text));
+      } else {
+        line.className = "sys";
+        line.textContent = message.text;
+      }
+      messagesEl.appendChild(line);
+    }
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // --- lobby & controls ----------------------------------------------------
+  const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+  function currentName() {
+    const name = clean(nameInput.value, 20);
+    if (name && name !== playerName) {
+      playerName = name;
+      store.set("ttt:name", name);
+    }
+    return playerName || "Player";
+  }
+
+  function enterRoom(code) {
+    currentName();
+    const url = new URL(location.href);
+    url.searchParams.set("room", code);
+    history.replaceState(null, "", url);
+    connect(code);
+  }
+
+  $("create-btn").addEventListener("click", () => {
+    const code = Array.from({ length: 4 },
+      () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join("");
+    enterRoom(code);
+  });
+
+  $("join-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const code = clean(codeInput.value, 4).toUpperCase();
+    if (code.length !== 4) {
+      lobbyError.classList.remove("sr-only");
+      lobbyError.textContent = "Room codes are 4 characters.";
+      return;
+    }
+    enterRoom(code);
+  });
+
+  rematchBtn.addEventListener("click", rematch);
+  resetBtn.addEventListener("click", () => {
+    if (!mySeat()) return;
+    commit((s) => {
+      s.scores = { X: 0, O: 0, draws: 0 };
+      pushChat(s, "", "Scoreboard cleared.");
+    });
+  });
+  $("sit-x").addEventListener("click", () => claimSeat("X"));
+  $("sit-o").addEventListener("click", () => claimSeat("O"));
+
+  $("share-btn").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    const link = `${location.origin}${location.pathname}?room=${roomCode}`;
+    try {
+      if (navigator.share && matchMedia("(pointer: coarse)").matches) {
+        await navigator.share({ title: "Tic Tac Toe", text: `Join my game — code ${roomCode}`, url: link });
+        return;
+      }
+      await navigator.clipboard.writeText(link);
+      button.textContent = "Copied!";
+    } catch {
+      button.textContent = link;
+    }
+    setTimeout(() => { button.textContent = "Copy link"; }, 1800);
+  });
+
+  $("leave-btn").addEventListener("click", () => {
+    standUp();
+    setTimeout(() => {
+      disconnect();
+      const url = new URL(location.href);
+      url.searchParams.delete("room");
+      history.replaceState(null, "", url);
+      game.hidden = true;
+      lobby.hidden = false;
+      lastChatId = 0;
+    }, 250);
+  });
+
+  $("chat-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = $("chat-input");
+    const text = clean(input.value, 200);
+    if (!text || !state) return;
+    commit((s) => pushChat(s, playerName || "Player", text));
+    input.value = "";
+  });
+
+  nameInput.addEventListener("change", () => {
+    const name = currentName();
+    const mark = mySeat();
+    if (mark) commit((s) => { s.seats[mark].name = name; });
+    announce();
+  });
+
+  window.addEventListener("beforeunload", () => { try { client?.end(true); } catch {} });
+
+  // --- start ---------------------------------------------------------------
+  const fromLink = new URLSearchParams(location.search).get("room");
+  const targetRoom = fromLink && /^[A-Za-z0-9]{4}$/.test(fromLink)
+    ? fromLink.toUpperCase()
+    : DEFAULT_ROOM;
+
+  $("family-btn").textContent = `Join the game (${targetRoom})`;
+  $("family-btn").addEventListener("click", () => enterRoom(targetRoom));
+
+  if (playerName) {
+    enterRoom(targetRoom);
+  } else {
+    codeInput.value = targetRoom;
+    nameInput.focus();
+    nameInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !client) enterRoom(targetRoom);
+    });
+  }
+})();
+</script>
+</body>
+</html>

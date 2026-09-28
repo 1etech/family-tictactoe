@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "family-tictactoe",
+  "compatibility_date": "2025-10-11",
+
+  // Static assets only: no Worker script and no Durable Object, which is what
+  // puts this on the free tier. The page syncs through a public broker instead.
+  "assets": {
+    "directory": "./docs/"
+  }
+}
