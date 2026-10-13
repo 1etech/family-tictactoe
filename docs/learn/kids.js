@@ -60,7 +60,28 @@
   // --- storage -------------------------------------------------------------
   let canSave = true;
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const blank = () => ({ kids: {}, parents: {}, attempts: [], current: null });
+  const blank = () => ({ kids: {}, parents: {}, attempts: [], current: null, nextNo: 1 });
+
+  /**
+   * Gives every saved test a permanent number (#1, #2, …) in date order. Tests
+   * saved before numbering existed, or imported with a clashing number, get the
+   * next free one; numbers already given never change.
+   */
+  function numberAttempts(data) {
+    const used = new Set();
+    const byDate = [...data.attempts].sort((x, y) => x.at - y.at);
+    for (const a of byDate) {
+      if (Number.isInteger(a.no) && a.no > 0 && !used.has(a.no)) used.add(a.no);
+      else a.no = 0;
+    }
+    let next = Math.max(Number(data.nextNo) || 1, ...[...used].map((n) => n + 1));
+    for (const a of byDate) {
+      if (a.no) continue;
+      a.no = next++;
+      used.add(a.no);
+    }
+    data.nextNo = next;
+  }
 
   /** Keeps only well-formed "seen by grown-up" stamps. */
   const fixSeen = (seen) => Object.fromEntries(Object.entries(seen && typeof seen === "object" ? seen : {})
@@ -88,6 +109,7 @@
       data.parents = data.parents && typeof data.parents === "object" ? data.parents : {};
       Object.values(data.kids).forEach(fixKid);
       for (const a of data.attempts) a.seenBy = fixSeen(a.seenBy);
+      numberAttempts(data);
       return data;
     } catch {
       canSave = false;
@@ -205,6 +227,7 @@
 
       const result = grant(kid, lines);
       attempt.points = result.points;
+      attempt.no = db.nextNo++;
       db.attempts.push(attempt);
       save();
       return { ...result, newBest };
@@ -213,6 +236,33 @@
     /** Saved tests, newest first. */
     attempts: (kidId) => db.attempts.filter((a) => !kidId || a.kidId === kidId).slice().reverse(),
     attempt: (id) => db.attempts.find((a) => a.id === id) || null,
+
+    /**
+     * Saved tests for the parent page. Filters: kidId, testId, from/to (ms,
+     * inclusive), no (test number), unseenBy (a grown-up's id). Sorts:
+     * newest, oldest, number, child, test, score-high, score-low.
+     */
+    findAttempts({ kidId, testId, from, to, no, unseenBy, sort = "newest" } = {}) {
+      const TEST_ORDER = ["easy", "medium", "hard", "mixed"];
+      const list = db.attempts.filter((a) =>
+        (!kidId || a.kidId === kidId)
+        && (!testId || a.testId === testId)
+        && (!from || a.at >= from)
+        && (!to || a.at <= to)
+        && (!no || a.no === no)
+        && (!unseenBy || !a.seenBy[unseenBy]));
+      const newest = (x, y) => y.at - x.at || y.no - x.no;
+      const sorts = {
+        newest,
+        oldest: (x, y) => -newest(x, y),
+        number: (x, y) => y.no - x.no,
+        child: (x, y) => x.kidName.localeCompare(y.kidName) || newest(x, y),
+        test: (x, y) => TEST_ORDER.indexOf(x.testId) - TEST_ORDER.indexOf(y.testId) || newest(x, y),
+        "score-high": (x, y) => y.pct - x.pct || newest(x, y),
+        "score-low": (x, y) => x.pct - y.pct || newest(x, y),
+      };
+      return list.sort(sorts[sort] || newest);
+    },
     deleteAttempt(id) { db.attempts = db.attempts.filter((a) => a.id !== id); save(); },
 
     // Grown-ups review tests. They are not linked to particular children —
@@ -283,11 +333,13 @@
         parentsAdded++;
       }
       const have = new Map(db.attempts.map((a) => [a.id, a]));
+      // Numbers already used on this device win; a clashing import gets a new one.
+      const takenNos = new Set(db.attempts.map((a) => a.no));
       for (const a of data.attempts) {
         if (a && have.has(a.id)) Object.assign(have.get(a.id).seenBy, fixSeen(a.seenBy));
         if (!a || typeof a.id !== "string" || have.has(a.id) || !db.kids[a.kidId] || !Array.isArray(a.items)) continue;
         db.attempts.push({
-          seenBy: fixSeen(a.seenBy),
+          seenBy: fixSeen(a.seenBy), no: takenNos.has(Number(a.no)) ? 0 : (takenNos.add(Number(a.no)), Number(a.no) || 0),
           id: a.id, kidId: a.kidId, kidName: clean(a.kidName, 20), avatar: AVATARS.includes(a.avatar) ? a.avatar : AVATARS[0],
           topic: clean(a.topic, 30), testId: clean(a.testId, 20), testName: clean(a.testName, 40),
           at: Number(a.at) || 0, durationSec: Number(a.durationSec) || 0, points: Number(a.points) || 0,
@@ -302,6 +354,7 @@
         attemptsAdded++;
       }
       db.attempts.sort((x, y) => x.at - y.at);
+      numberAttempts(db);
       save();
       return { kidsAdded, parentsAdded, attemptsAdded };
     },

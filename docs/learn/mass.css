@@ -386,3 +386,56 @@ button.danger[data-armed] { background: var(--bad); color: #fff; border-color: t
 .seen { display: block; font-size: 12px; color: var(--muted); margin-top: 2px; }
 .seen .pav { vertical-align: -5px; }
 .manage-row .pav { margin-right: -2px; }
+
+/* ---- finding and sorting saved tests ---------------------------------- */
+.filters { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(140px, 42%), 1fr)); gap: 10px; margin-top: 10px; }
+.filters label { margin: 0; display: grid; gap: 4px; }
+.filters select, .filters input {
+  font: inherit; font-size: 15px; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; width: 100%; min-width: 0;
+}
+.filters select:focus-visible, .filters input:focus-visible, .filter-foot input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.filters input[type="date"] { color-scheme: light dark; }
+.filter-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.filter-foot .spacer { flex: 1; }
+label.check { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: var(--ink); font-weight: 600; cursor: pointer; }
+label.check input { width: 18px; height: 18px; accent-color: var(--accent); }
+
+.table-wrap { margin-top: 10px; }
+.att-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.att-table th {
+  text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+  padding: 8px; border-bottom: 2px solid var(--line); white-space: nowrap;
+}
+.att-table td { padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.att-table tbody tr { cursor: pointer; }
+.att-table tbody tr:hover { background: var(--bg); }
+.att-table tr.is-new td:first-child { box-shadow: inset 4px 0 0 var(--accent); }
+.att-table small { display: block; color: var(--muted); font-size: 12px; }
+.att-table .c-no { white-space: nowrap; }
+.att-table .c-when, .att-table .c-kid { white-space: nowrap; }
+.att-table .c-score b.good { color: var(--good); }
+.att-table .c-score b.mid { color: var(--u-kg); }
+.att-table .c-score b.low { color: var(--bad); }
+.att-table .c-seen { white-space: nowrap; }
+.att-table .c-seen .pav { margin-right: 2px; }
+.att-table .c-view { text-align: right; }
+
+/* On phones each test becomes a small card with labels. */
+@media (max-width: 640px) {
+  .att-table thead { display: none; }
+  .att-table, .att-table tbody, .att-table tr, .att-table td { display: block; width: 100%; }
+  .att-table tr {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px;
+    border: 1px solid var(--line); border-radius: 12px; margin-bottom: 8px; background: var(--bg);
+  }
+  .att-table tr.is-new { border-left: 4px solid var(--accent); }
+  .att-table tr.is-new td:first-child { box-shadow: none; }
+  .att-table td { border: none; padding: 0; white-space: normal; }
+  .att-table td[data-label]::before {
+    content: attr(data-label); display: block; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .05em; color: var(--muted); font-weight: 600;
+  }
+  .att-table .c-view { grid-column: 1 / -1; text-align: left; }
+  .att-table .c-view button { width: 100%; }
+}

@@ -1461,6 +1461,7 @@
     panels.test.innerHTML = `
       <div class="card result-top">
         ${scoreBlock(attempt, `${kid ? `${kid.avatar} ${esc(kid.name)} · ` : ""}${attempt.testName} — results`, reward?.newBest)}
+        ${attempt.no ? `<p class="note">Test #${attempt.no} · 📅 ${stamp(attempt.at)} · took ${duration(attempt.durationSec)}</p>` : ""}
         <p>${message}</p>
         ${rewardBox}
         <p class="note">${reward ? "✓ Saved for a grown-up to review." : "This result could not be saved."}</p>
@@ -1550,7 +1551,7 @@
   // --- parents -------------------------------------------------------------
   // The grown-up reviewing is remembered only while the page is open, so a
   // child who opens the Parents tab later is asked who they are.
-  const PV = { kid: "all", open: null, status: "", parentId: null };
+  const PV = { open: null, status: "", parentId: null, f: null };
   const pav = (id, size, label) => window.LearnAvatars.svg(id, size, label);
   const parentName = (id) => Kids.PARENT_AVATARS.find((a) => a.id === id)?.name || "";
 
@@ -1629,16 +1630,43 @@
     </div>`;
   }
 
+  const dateStr = (at) => new Date(at).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  const timeStr = (at) => new Date(at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
+  const stamp = (at) => `${dateStr(at)}, ${timeStr(at)}`;
+  const dayStart = (iso) => { const [y, m, d] = iso.split("-").map(Number); return new Date(y, m - 1, d).getTime(); };
+
+  const SORTS = [
+    ["newest", "Newest first"], ["oldest", "Oldest first"], ["number", "Test number"],
+    ["child", "Child's name (A–Z)"], ["test", "Test (Easy → Mixed)"],
+    ["score-high", "Score (highest first)"], ["score-low", "Score (lowest first)"],
+  ];
+  const blankFilters = () => ({ kid: "all", test: "all", from: "", to: "", no: "", newOnly: false, sort: "newest" });
+  PV.f = blankFilters();
+
+  /** The saved tests matching the parent page's filters, sorted. */
+  function filteredAttempts() {
+    const f = PV.f;
+    const no = parseNum(String(f.no).replace(/^#/, ""));
+    return Kids.findAttempts({
+      kidId: f.kid === "all" ? null : f.kid,
+      testId: f.test === "all" ? null : f.test,
+      from: f.from ? dayStart(f.from) : null,
+      to: f.to ? dayStart(f.to) + 86399999 : null,
+      no: no || null,
+      unseenBy: f.newOnly ? PV.parentId : null,
+      sort: f.sort,
+    });
+  }
+
   function drawParents() {
     const me = Kids.getParent(PV.parentId);
     if (!me) { PV.parentId = null; PV.open = null; return drawParentWho(); }
     if (PV.open) return drawParentAttempt(PV.open);
     const kids = Kids.list();
     const parents = Kids.parents();
-    if (PV.kid !== "all" && !Kids.get(PV.kid)) PV.kid = "all";
-    const shown = PV.kid === "all" ? kids : kids.filter((k) => k.id === PV.kid);
-    const attempts = Kids.attempts(PV.kid === "all" ? null : PV.kid);
-    const chips = [["all", "Everyone"], ...kids.map((k) => [k.id, `${k.avatar} ${esc(k.name)}`])];
+    if (PV.f.kid !== "all" && !Kids.get(PV.f.kid)) PV.f.kid = "all";
+    const f = PV.f;
+    const opt = (value, label, current) => `<option value="${value}"${value === current ? " selected" : ""}>${label}</option>`;
     panels.parents.innerHTML = `
       <div class="card">
         <div class="reviewer">
@@ -1648,25 +1676,30 @@
           <button type="button" class="small" data-par="done">Done</button>
         </div>
         <h2>👪 Parent review</h2>
-        <p class="lead">Every finished test is saved here with each answer, what went wrong and the right method. Any grown-up can review any child. Results are kept in this browser, on this device.</p>
-        ${kids.length
-          ? `<div class="filter">${chips.map(([id, label]) => `<button type="button" data-par="filter" data-id="${id}" aria-pressed="${PV.kid === id}">${label}</button>`).join("")}</div>`
-          : "<p>No learners yet. Children add their name when they open Practice, Test or Rewards.</p>"}
+        <p class="lead">Every finished test is saved with a test number, the date and time, and the child's name, plus each answer, what went wrong and the right method. Any grown-up can review any child. Results are kept in this browser, on this device.</p>
+        ${kids.length ? "" : "<p>No learners yet. Children add their name when they open Practice, Test or Rewards.</p>"}
       </div>
-      ${shown.map(kidSummary).join("")}
       <div class="card">
-        <h2>Saved tests <small class="muted">${attempts.length}</small></h2>
-        ${attempts.length ? `<div class="att-list">${attempts.map((a) => `
-          <button type="button" class="att-row" data-par="open" data-id="${a.id}">
-            <span class="av" aria-hidden="true">${a.avatar}</span>
-            <span class="att-main"><b>${esc(a.kidName)}</b> · ${esc(a.testName)}${a.seenBy?.[me.id] ? "" : ' <span class="new-chip">New</span>'}
-              <small>${when(a.at)} · took ${duration(a.durationSec)}</small>${seenLine(a)}</span>
-            <span class="att-score ${pctClass(a.pct)}">${a.right}/${a.total}<small>${a.pct}%</small></span>
-          </button>`).join("")}</div>` : '<p class="lead">No tests taken yet.</p>'}
+        <h2>Find and sort tests</h2>
+        <div class="filters">
+          <label>Child<select data-f="kid">${opt("all", "Everyone", f.kid)}${kids.map((k) => opt(k.id, `${k.avatar} ${esc(k.name)}`, f.kid)).join("")}</select></label>
+          <label>Test<select data-f="test">${opt("all", "All tests", f.test)}${Object.entries(TESTS).map(([id, t]) => opt(id, `${t.icon} ${t.name}`, f.test)).join("")}</select></label>
+          <label>From date<input type="date" data-f="from" value="${esc(f.from)}"></label>
+          <label>To date<input type="date" data-f="to" value="${esc(f.to)}"></label>
+          <label>Test #<input type="text" inputmode="numeric" data-f="no" value="${esc(f.no)}" placeholder="e.g. 12" autocomplete="off"></label>
+          <label>Sort by<select data-f="sort">${SORTS.map(([v, label]) => opt(v, label, f.sort)).join("")}</select></label>
+        </div>
+        <div class="filter-foot">
+          <label class="check"><input type="checkbox" data-f="newOnly"${f.newOnly ? " checked" : ""}> Only tests I haven't seen</label>
+          <span class="spacer"></span>
+          <button type="button" class="small" data-par="clear">Clear filters</button>
+          <button type="button" class="small" data-par="csv">⬇️ Download as spreadsheet</button>
+        </div>
       </div>
+      <div id="par-results"></div>
       <div class="card">
         <h2>Backup and other devices</h2>
-        <p>To look at results on a different phone or computer, export a backup here and import it there. Importing adds to what is already saved — nothing is overwritten.</p>
+        <p>To look at results on a different phone or computer, export a backup here and import it there. Importing adds to what is already saved — nothing is overwritten, and test numbers already used here stay the same.</p>
         <div class="qactions">
           <button type="button" data-par="export">⬇️ Export backup</button>
           <button type="button" data-par="import">⬆️ Import backup</button>
@@ -1681,6 +1714,40 @@
             <button type="button" class="danger small" data-par="remove-parent" data-id="${p.id}">Remove</button></div>`).join("")}</div>
       </div>`;
     PV.status = "";
+    drawParentResults();
+  }
+
+  /** Child summaries and the test table; redrawn alone so typing in a filter keeps focus. */
+  function drawParentResults() {
+    const box = panels.parents.querySelector("#par-results");
+    if (!box) return;
+    const me = Kids.getParent(PV.parentId);
+    const kids = Kids.list();
+    const shownKids = PV.f.kid === "all" ? kids : kids.filter((k) => k.id === PV.f.kid);
+    const list = filteredAttempts();
+    const total = Kids.attempts().length;
+    const rows = list.map((a) => {
+      const isNew = !a.seenBy?.[me.id];
+      const seen = Object.keys(a.seenBy || {}).map((id) => Kids.getParent(id)).filter(Boolean);
+      return `<tr data-par="open" data-id="${a.id}" class="${isNew ? "is-new" : ""}">
+        <td data-label="Test #" class="c-no"><b>#${a.no}</b>${isNew ? ' <span class="new-chip">New</span>' : ""}</td>
+        <td data-label="Date & time" class="c-when">${dateStr(a.at)}<small>${timeStr(a.at)}</small></td>
+        <td data-label="Child" class="c-kid"><span aria-hidden="true">${a.avatar}</span> ${esc(a.kidName)}</td>
+        <td data-label="Test">${TESTS[a.testId]?.icon || ""} ${esc(a.testName)}</td>
+        <td data-label="Score" class="c-score"><b class="${pctClass(a.pct)}">${a.right}/${a.total} · ${a.pct}%</b><small>took ${duration(a.durationSec)}</small></td>
+        <td data-label="Seen by" class="c-seen">${seen.length ? seen.map((p) => `<span title="${esc(p.name)}">${pav(p.avatar, 22, esc(p.name))}</span>`).join("") : '<small class="muted">—</small>'}</td>
+        <td class="c-view"><button type="button" class="small" data-par="open" data-id="${a.id}">View</button></td>
+      </tr>`;
+    }).join("");
+    box.innerHTML = `
+      ${shownKids.map(kidSummary).join("")}
+      <div class="card">
+        <h2>Saved tests <small class="muted">showing ${list.length} of ${total}</small></h2>
+        ${list.length ? `<div class="table-wrap"><table class="att-table">
+          <thead><tr><th>Test #</th><th>Date &amp; time</th><th>Child</th><th>Test</th><th>Score</th><th>Seen by</th><th><span class="sr-only">Open</span></th></tr></thead>
+          <tbody>${rows}</tbody></table></div>`
+          : `<p class="lead">${total ? "No tests match these filters." : "No tests taken yet."}</p>`}
+      </div>`;
   }
 
   function drawParentAttempt(id) {
@@ -1693,30 +1760,62 @@
         <button type="button" class="danger" data-par="delete" data-id="${a.id}">Delete this result</button>
       </div></div>
       <div class="card result-top">
-        ${scoreBlock(a, `${a.avatar} ${esc(a.kidName)} · ${esc(a.testName)}`)}
-        <p class="note">${when(a.at)} · took ${duration(a.durationSec)} · earned 🐾 ${a.points}</p>
+        ${scoreBlock(a, `<b>Test #${a.no}</b> · ${a.avatar} ${esc(a.kidName)} · ${esc(a.testName)}`)}
+        <p class="note">📅 ${stamp(a.at)} · took ${duration(a.durationSec)} · earned 🐾 ${a.points}</p>
         <p class="note">${seenLine(a)}</p>
       </div>
       <div class="card"><h2>Skills</h2>${skillBars(skillTally(a.items))}</div>
       ${reviewCard(a.items, "Answer given")}`;
   }
 
-  function exportBackup() {
-    const blob = new Blob([Kids.exportData()], { type: "application/json" });
+  /** The filtered list as a CSV file for a spreadsheet. */
+  function exportCSV() {
+    // Quote every cell; a leading = + - @ would make a spreadsheet run it as a formula.
+    const cell = (v) => {
+      let s = String(v ?? "");
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+    const head = ["Test #", "Date", "Time", "Child", "Test", "Right", "Questions", "Percent", "Time taken (s)", "Claw Points", "Seen by"];
+    const lines = filteredAttempts().map((a) => [
+      a.no, new Date(a.at).toLocaleDateString("en-AU"), timeStr(a.at), a.kidName, a.testName, a.right, a.total, a.pct,
+      a.durationSec, a.points, Object.keys(a.seenBy || {}).map((id) => Kids.getParent(id)?.name).filter(Boolean).join("; "),
+    ]);
+    const csv = "﻿" + [head, ...lines].map((row) => row.map(cell).join(",")).join("\r\n");
+    download(csv, "text/csv", `test-results-${new Date().toISOString().slice(0, 10)}.csv`);
+  }
+
+  function download(text, type, filename) {
     const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `learning-results-${new Date().toISOString().slice(0, 10)}.json`;
+    link.href = URL.createObjectURL(new Blob([text], { type }));
+    link.download = filename;
     document.body.appendChild(link);
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(link.href), 2000);
   }
 
+  function exportBackup() {
+    download(Kids.exportData(), "application/json", `learning-results-${new Date().toISOString().slice(0, 10)}.json`);
+  }
+
+  // Filters: selects, dates and the checkbox redraw on change; the number box as you type.
+  const onFilter = (event) => {
+    const field = event.target.dataset?.f;
+    if (!field) return;
+    if (event.type === "input" && field !== "no") return;
+    PV.f[field] = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    drawParentResults();
+  };
+  panels.parents.addEventListener("change", onFilter);
+  panels.parents.addEventListener("input", onFilter);
+
   panels.parents.addEventListener("click", (event) => {
     const b = event.target.closest("[data-par]");
     if (!b) return;
     const { par, id } = b.dataset;
-    if (par === "filter") { PV.kid = id; drawParents(); }
+    if (par === "clear") { PV.f = blankFilters(); drawParents(); }
+    if (par === "csv") exportCSV();
     if (par === "open") { PV.open = id; drawParents(); root.scrollIntoView({ behavior: "smooth", block: "start" }); }
     if (par === "back") { PV.open = null; drawParents(); }
     if (par === "delete" && confirmed(b, "Tap again to delete")) { Kids.deleteAttempt(id); PV.open = null; drawParents(); }

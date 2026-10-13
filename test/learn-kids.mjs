@@ -114,6 +114,63 @@ Kids.removeParent(mum.id);
 assert.equal(Kids.getParent(mum.id), null);
 assert.equal(Kids.attempt(leoAttempt.id).seenBy[mum.id], undefined, "removing a grown-up clears their marks");
 
+// Test numbers, filtering and sorting.
+{
+  const { Kids: K, data: store } = fresh();
+  const a = K.add("Amy", "😺"), b = K.add("Ben", "🐯");
+  const day = (d, h = 10) => new Date(2026, 9, d, h).getTime();
+  const save = (kid, testId, at, pctRight) => {
+    const items = Array.from({ length: 4 }, (_, i) => item(i < pctRight, testId === "mixed" ? "hard" : testId));
+    const t = attempt(testId, items);
+    t.at = at;
+    K.finishTest(kid.id, t);
+  };
+  save(a, "easy", day(1), 4);   // #1
+  save(b, "hard", day(2), 1);   // #2
+  save(a, "medium", day(3), 2); // #3
+  save(b, "easy", day(3, 15), 3); // #4
+  const nos = (list) => Array.from(list, (x) => x.no);
+  assert.deepEqual(nos(K.findAttempts()), [4, 3, 2, 1], "newest first by default");
+  assert.deepEqual(nos(K.findAttempts({ sort: "oldest" })), [1, 2, 3, 4]);
+  assert.deepEqual(nos(K.findAttempts({ sort: "number" })), [4, 3, 2, 1]);
+  assert.deepEqual(nos(K.findAttempts({ sort: "child" })), [3, 1, 4, 2], "Amy then Ben, newest first within");
+  assert.deepEqual(nos(K.findAttempts({ sort: "test" })), [4, 1, 3, 2], "easy, medium, hard");
+  assert.deepEqual(nos(K.findAttempts({ sort: "score-high" })), [1, 4, 3, 2]);
+  assert.deepEqual(nos(K.findAttempts({ sort: "score-low" })), [2, 3, 4, 1]);
+  assert.deepEqual(nos(K.findAttempts({ kidId: a.id })), [3, 1]);
+  assert.deepEqual(nos(K.findAttempts({ testId: "easy" })), [4, 1]);
+  assert.deepEqual(nos(K.findAttempts({ from: day(2, 0), to: day(3, 12) })), [3, 2], "date range is inclusive");
+  assert.deepEqual(nos(K.findAttempts({ no: 2 })), [2]);
+  const mumP = K.addParent("Mum", "lion-f");
+  K.markSeen(K.findAttempts({ no: 3 })[0].id, mumP.id);
+  assert.deepEqual(nos(K.findAttempts({ unseenBy: mumP.id })), [4, 2, 1]);
+
+  // Numbers survive deletion and reloads, and are never reused.
+  K.deleteAttempt(K.findAttempts({ no: 4 })[0].id);
+  save(a, "hard", day(5), 2);
+  assert.deepEqual(nos(K.findAttempts({ sort: "number" })), [5, 3, 2, 1], "a deleted number is not reused");
+  const again = fresh(store).Kids;
+  assert.deepEqual(nos(again.findAttempts({ sort: "number" })), [5, 3, 2, 1]);
+
+  // Old saves without numbers get them in date order.
+  const old = JSON.parse(store["learn:v1"]);
+  for (const t of old.attempts) delete t.no;
+  delete old.nextNo;
+  const migrated = fresh({ "learn:v1": JSON.stringify(old) }).Kids;
+  assert.deepEqual(nos(migrated.findAttempts({ sort: "oldest" })), [1, 2, 3, 4]);
+
+  // Importing keeps local numbers; clashing imported ones get new numbers.
+  const other = fresh().Kids;
+  const c = other.add("Cat", "😸");
+  const ct = attempt("easy", [item(true, "easy")]);
+  ct.at = day(9);
+  other.finishTest(c.id, ct); // #1 on the other device
+  K.importData(other.exportData());
+  const imported = K.findAttempts({ kidId: c.id })[0];
+  assert.equal(imported.no, 6, "clashing #1 becomes the next free number");
+  assert.equal(K.findAttempts({ no: 1 })[0].kidName, "Amy", "local #1 is untouched");
+}
+
 // Deleting.
 Kids.deleteAttempt(saved.id);
 assert.equal(Kids.attempts(mia.id).length, 1);

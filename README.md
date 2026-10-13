@@ -128,6 +128,11 @@ does not take a seat in the family game.
   has **seen** each one, plus a summary per child (average, best per test,
   practice accuracy, weakest skill). Results can be deleted. The grown-up is
   forgotten when the page closes, so it asks again next time.
+- **Test numbers, dates and filters.** Every finished test gets a permanent
+  number (#1, #2, …) that is never reused, and is shown with its date, time and
+  the child's name. The Parents tab filters by child, test, date range, test
+  number and "only tests I haven't seen", sorts by date, number, child, test or
+  score, and downloads the filtered list as a spreadsheet (CSV).
 
 Everything is stored in the browser's `localStorage` on the device the children
 use — nothing goes to a server. **Export backup** / **Import backup** on the
