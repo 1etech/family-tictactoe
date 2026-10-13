@@ -902,32 +902,41 @@
   // --- page wiring ---------------------------------------------------------
   const root = document.getElementById("learn-root");
   if (!root) return;
+  const Kids = window.LearnKids;
 
-  const store = {
-    get(key) { try { return localStorage.getItem(key); } catch { return null; } },
-    set(key, value) { try { localStorage.setItem(key, value); } catch {} },
-  };
-
+  const VIEWS = [
+    ["learn", "📖", "Learn"], ["practice", "✏️", "Practice"], ["test", "📝", "Test"],
+    ["rewards", "🐾", "Rewards"], ["parents", "👪", "Parents"],
+  ];
   root.innerHTML = `
     <nav class="subtabs" role="tablist" aria-label="Learning sections">
-      <button type="button" role="tab" data-view="learn" aria-selected="true">📖 Learn</button>
-      <button type="button" role="tab" data-view="practice" aria-selected="false">✏️ Practice</button>
-      <button type="button" role="tab" data-view="test" aria-selected="false">📝 Test</button>
+      ${VIEWS.map(([v, icon, text]) => `<button type="button" role="tab" data-view="${v}" aria-selected="${v === "learn"}"><span class="i" aria-hidden="true">${icon}</span><span>${text}</span></button>`).join("")}
     </nav>
+    <div class="learner-bar" id="learner-bar"></div>
     <div data-panel="learn">${lessonHTML()}</div>
-    <div data-panel="practice" hidden></div>
-    <div data-panel="test" hidden></div>`;
+    ${VIEWS.slice(1).map(([v]) => `<div data-panel="${v}" hidden></div>`).join("")}
+    <div data-panel="who" hidden></div>
+    <div class="toasts" id="toasts" aria-live="polite"></div>`;
 
-  const panels = {
-    learn: root.querySelector('[data-panel="learn"]'),
-    practice: root.querySelector('[data-panel="practice"]'),
-    test: root.querySelector('[data-panel="test"]'),
-  };
+  const panels = Object.fromEntries([...root.querySelectorAll("[data-panel]")].map((el) => [el.dataset.panel, el]));
+  const bar = root.querySelector("#learner-bar");
 
-  function showView(view) {
-    for (const [name, el] of Object.entries(panels)) el.hidden = name !== view;
-    root.querySelectorAll(".subtabs [data-view]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === view)));
-    root.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Practice, tests and rewards belong to a named learner; ask first.
+  const NEEDS_KID = new Set(["practice", "test", "rewards"]);
+  let view = "learn";
+
+  function showView(next, scroll = true) {
+    let shown = next;
+    if (NEEDS_KID.has(next) && !Kids.current()) {
+      drawWho(next);
+      shown = "who";
+    }
+    view = next;
+    for (const [name, el] of Object.entries(panels)) el.hidden = name !== shown;
+    root.querySelectorAll(".subtabs [data-view]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === next)));
+    if (shown === "rewards") drawRewards();
+    if (shown === "parents") drawParents();
+    if (scroll) root.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   root.addEventListener("click", (event) => {
@@ -935,8 +944,15 @@
     if (tab) return showView(tab.dataset.view);
     const go = event.target.closest("[data-view-go]");
     if (go) return showView(go.dataset.viewGo);
+    if (event.target.closest('[data-kid="switch"]')) return askWho();
     const jump = event.target.closest("[data-goto]");
-    if (jump) document.getElementById(jump.dataset.goto)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (jump) return document.getElementById(jump.dataset.goto)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Review lists everywhere filter with CSS, so no per-page listeners are needed.
+    const filter = event.target.closest(".review-card [data-filter]");
+    if (filter) {
+      filter.closest(".review-card").dataset.show = filter.dataset.filter;
+      filter.parentElement.querySelectorAll("[data-filter]").forEach((b) => b.setAttribute("aria-pressed", String(b === filter)));
+    }
   });
 
   // Scale demo.
@@ -1052,13 +1068,146 @@
       <div class="label">How to do it</div>${stepsHTML(q)}</div>`;
   }
 
+  // --- shared bits ---------------------------------------------------------
+  const when = (at) => new Date(at).toLocaleString("en-AU",
+    { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const duration = (sec) => (sec >= 60 ? `${Math.floor(sec / 60)}m ${sec % 60}s` : `${sec}s`);
+  const pctClass = (p) => (p >= 80 ? "good" : p >= 50 ? "mid" : "low");
+
+  function toast(html) {
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerHTML = html;
+    root.querySelector("#toasts").appendChild(el);
+    setTimeout(() => el.remove(), 4200);
+  }
+
+  /** Shows what a reward unlocked and refreshes the points in the learner bar. */
+  function celebrate(reward) {
+    if (!reward) return;
+    drawLearnerBar();
+    for (const b of reward.newBadges) toast(`<span class="t-icon">${b.icon}</span><span>New badge!<b>${b.name}</b></span>`);
+    if (reward.rankUp) toast(`<span class="t-icon">${reward.rankUp.icon}</span><span>You're now a<b>${reward.rankUp.name}</b></span>`);
+  }
+
+  /** Two taps for anything destructive; no browser pop-ups. */
+  function confirmed(button, prompt) {
+    if (button.dataset.armed) return true;
+    const original = button.textContent;
+    button.dataset.armed = "1";
+    button.textContent = prompt;
+    setTimeout(() => {
+      if (!button.isConnected) return;
+      delete button.dataset.armed;
+      button.textContent = original;
+    }, 4000);
+    return false;
+  }
+
+  /**
+   * Imported backups are outside input, so their stored question HTML is cut
+   * down to the few tags and attributes the questions actually use.
+   */
+  const SAFE_TAGS = new Set(["b", "br", "div", "span", "ol", "li", "p", "small", "svg", "rect", "circle", "line", "text", "path", "g"]);
+  const SAFE_ATTRS = new Set(["class", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "width", "height", "d",
+    "viewbox", "font-size", "font-weight", "text-anchor", "dominant-baseline", "stroke-width", "role", "aria-label", "aria-hidden"]);
+  function sanitizeHTML(html) {
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    const walk = (node) => {
+      for (const el of [...node.children]) {
+        if (!SAFE_TAGS.has(el.localName)) { el.remove(); continue; }
+        for (const a of [...el.attributes]) if (!SAFE_ATTRS.has(a.name.toLowerCase())) el.removeAttribute(a.name);
+        walk(el);
+      }
+    };
+    walk(tpl.content);
+    return tpl.innerHTML;
+  }
+
+  // --- who is learning -----------------------------------------------------
+  function drawLearnerBar() {
+    const kid = Kids.current();
+    if (!kid) {
+      bar.innerHTML = '<span class="lb-hello">👋 Who\'s learning today?</span><button type="button" class="primary" data-kid="switch">Choose your cat</button>';
+      return;
+    }
+    const { rank } = Kids.rankFor(kid.points);
+    bar.innerHTML = `<span class="lb-av" aria-hidden="true">${kid.avatar}</span>
+      <span class="lb-name">${esc(kid.name)}<small>${rank.icon} ${rank.name}</small></span>
+      <button type="button" class="lb-claws" data-view-go="rewards" aria-label="${kid.points} Claw Points — see rewards">🐾 <b>${kid.points}</b><small>Claw Points</small></button>
+      <button type="button" data-kid="switch">Switch</button>`;
+  }
+
+  function askWho() {
+    drawWho(view);
+    for (const [name, el] of Object.entries(panels)) el.hidden = name !== "who";
+    root.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function drawWho(after) {
+    const kids = Kids.list();
+    const used = new Set(kids.map((k) => k.avatar));
+    let avatar = Kids.AVATARS.find((a) => !used.has(a)) || Kids.AVATARS[0];
+    const current = Kids.current();
+    panels.who.innerHTML = `<div class="card">
+      <h2>Who's learning? 🐾</h2>
+      <p class="lead">Pick your name so your Claw Points and tests are saved for you.</p>
+      ${kids.length ? `<div class="kid-grid">${kids.map((k) => `
+        <button type="button" class="kid-btn" data-pick="${k.id}" aria-pressed="${k === current}">
+          <span class="av" aria-hidden="true">${k.avatar}</span><b>${esc(k.name)}</b><small>🐾 ${k.points}</small></button>`).join("")}
+      </div><h3>Someone new?</h3>` : ""}
+      <form class="new-kid" autocomplete="off">
+        <label for="kid-name">Your name</label>
+        <input id="kid-name" type="text" maxlength="20" placeholder="e.g. Mia">
+        <div class="pick-label">Pick your cat</div>
+        <div class="avatar-pick">${Kids.AVATARS.map((a) => `<button type="button" data-av="${a}" aria-pressed="${a === avatar}" aria-label="Cat ${a}">${a}</button>`).join("")}</div>
+        <p class="form-error" role="alert"></p>
+        <div class="qactions">
+          ${current ? '<button type="button" data-who="cancel">Cancel</button>' : ""}
+          <button type="submit" class="primary">Start learning 🐾</button>
+        </div>
+      </form>
+      <p class="note">${Kids.canSave() ? "Names, points and tests are saved on this device only." : "⚠️ This browser is not letting the page save, so points and tests will be lost when the page closes."}</p>
+    </div>`;
+
+    const done = (kid) => {
+      if (!kid) return;
+      onKidChange();
+      showView(after);
+    };
+    panels.who.querySelectorAll("[data-pick]").forEach((b) => b.addEventListener("click", () => {
+      Kids.setCurrent(b.dataset.pick);
+      done(Kids.current());
+    }));
+    panels.who.querySelectorAll("[data-av]").forEach((b) => b.addEventListener("click", () => {
+      avatar = b.dataset.av;
+      panels.who.querySelectorAll("[data-av]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    }));
+    panels.who.querySelector('[data-who="cancel"]')?.addEventListener("click", () => showView(after));
+    panels.who.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const kid = Kids.add(panels.who.querySelector("#kid-name").value, avatar);
+      if (!kid) panels.who.querySelector(".form-error").textContent = "Type your name first.";
+      done(kid);
+    });
+  }
+
+  /** A different child is now learning: their practice and tests start fresh. */
+  function onKidChange() {
+    drawLearnerBar();
+    resetPractice();
+    T.active = false;
+    drawTestMenu();
+  }
+
   // --- practice ------------------------------------------------------------
   const P = { levels: null, skills: null, q: null, lastGen: null, count: 0, right: 0, streak: 0 };
 
   panels.practice.innerHTML = `
     <div class="card">
       <h2>Practice</h2>
-      <p class="lead">Pick a level. After each answer you'll see if you're right, and how to do it.</p>
+      <p class="lead">Pick a level. Every right answer earns 🐾 Claw Points — Easy +1, Medium +2, Hard +3, and a bonus for every 5 in a row.</p>
       <div class="levels">
         <button type="button" data-level="easy" aria-pressed="false"><span class="e" aria-hidden="true">🌱</span>Easy<small>Units · simple changes</small></button>
         <button type="button" data-level="medium" aria-pressed="false"><span class="e" aria-hidden="true">🌿</span>Medium<small>kg + g · fractions · scales</small></button>
@@ -1070,6 +1219,13 @@
 
   const pCard = panels.practice.querySelector("#p-card");
   const pFocus = panels.practice.querySelector("#p-focus");
+
+  function resetPractice() {
+    Object.assign(P, { levels: null, skills: null, q: null, lastGen: null, count: 0, right: 0, streak: 0 });
+    pCard.hidden = true;
+    pFocus.hidden = true;
+    panels.practice.querySelectorAll("[data-level]").forEach((b) => b.setAttribute("aria-pressed", "false"));
+  }
 
   function startPractice(levels, skills = null) {
     Object.assign(P, { levels: new Set(levels), skills: skills && new Set(skills), count: 0, right: 0, streak: 0, lastGen: null });
@@ -1090,17 +1246,17 @@
     drawPractice();
   }
 
+  const scoreLine = () => `✅ <b>${P.right}</b> / ${P.count}${P.streak >= 2 ? ` · 🔥 ${P.streak} in a row` : ""}`;
+
   function drawPractice() {
     const q = P.q;
     const levelText = P.levels.size === 1 ? LEVEL_NAME[[...P.levels][0]] : "Mixed";
     pCard.hidden = false;
-    pCard.innerHTML = `<div class="qhead"><span>${levelText} · Question <b>${P.count + 1}</b></span>
-      <span>✅ <b>${P.right}</b> / ${P.count}${P.streak >= 2 ? ` · 🔥 ${P.streak} in a row` : ""}</span></div>`;
+    pCard.innerHTML = `<div class="qhead"><span>${levelText} · Question <b>${P.count + 1}</b></span><span data-score>${scoreLine()}</span></div>`;
     const view = questionView(q);
     pCard.appendChild(view.el);
     const hint = document.createElement("p");
-    hint.className = "sr-hint";
-    hint.style.cssText = "color:var(--muted);font-size:14px;min-height:20px;margin:8px 0 0";
+    hint.className = "hint";
     const actions = document.createElement("div");
     actions.className = "qactions";
     actions.innerHTML = '<button type="button" class="primary" data-act="check">Check answer</button>';
@@ -1121,11 +1277,14 @@
       P.count += 1;
       if (ok) { P.right += 1; P.streak += 1; } else P.streak = 0;
       view.lock(true);
-      feedback.innerHTML = feedbackHTML(q, given, ok);
+      const kid = Kids.current();
+      const reward = kid ? Kids.practiceAnswer(kid.id, { ok, level: q.level, skill: q.skill, streak: P.streak }) : null;
+      feedback.innerHTML = feedbackHTML(q, given, ok)
+        + (reward?.points ? `<div class="claw-gain">+${reward.points} 🐾 <span>${reward.lines.map(([, why]) => why).join(" · ")}</span></div>` : "");
+      celebrate(reward);
       actions.innerHTML = '<button type="button" class="primary" data-act="next">Next question →</button>';
       actions.querySelector("button").focus({ preventScroll: true });
-      pCard.querySelector(".qhead span:last-child").innerHTML =
-        `✅ <b>${P.right}</b> / ${P.count}${P.streak >= 2 ? ` · 🔥 ${P.streak} in a row` : ""}`;
+      pCard.querySelector("[data-score]").innerHTML = scoreLine();
       feedback.scrollIntoView({ behavior: "smooth", block: "nearest" });
     };
     const next = () => { nextPractice(); pCard.scrollIntoView({ behavior: "smooth", block: "nearest" }); };
@@ -1141,36 +1300,90 @@
   panels.practice.querySelectorAll("[data-level]").forEach((b) =>
     b.addEventListener("click", () => startPractice([b.dataset.level])));
 
+  // --- results, shared by the test and the parent page ----------------------
+  function scoreBlock(a, heading, newBest = false) {
+    const stars = a.pct >= 90 ? 3 : a.pct >= 70 ? 2 : a.pct >= 50 ? 1 : 0;
+    return `<div class="lead">${heading}</div>
+      <div class="stars" aria-label="${stars} out of 3 stars">${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}</div>
+      <div class="score">${a.right} / ${a.total}</div>
+      <div class="pct">${a.pct}%${newBest ? " · New best! 🏅" : ""}</div>`;
+  }
+
+  function skillTally(items) {
+    const by = {};
+    for (const it of items) {
+      const s = (by[it.skill] ||= { right: 0, total: 0 });
+      s.total += 1;
+      if (it.ok) s.right += 1;
+    }
+    return by;
+  }
+
+  const skillBars = (by) => `<div class="skills">${Object.entries(by).map(([s, v]) => {
+    const p = v.right / v.total;
+    const colour = p >= 0.8 ? "var(--good)" : p >= 0.5 ? "var(--u-kg)" : "var(--bad)";
+    return `<div class="skill"><span>${SKILLS[s] || esc(s)}</span><div class="bar"><div style="width:${Math.max(p * 100, 3)}%;background:${colour}"></div></div><span class="n">${v.right}/${v.total}</span></div>`;
+  }).join("")}</div>`;
+
+  const reviewItem = (it, i, yours) => `
+    <div class="ritem ${it.ok ? "ok" : ""}">
+      <div class="rq">${it.ok ? "✅" : "❌"} ${i + 1}. ${it.prompt}</div>
+      ${it.visual ? `<div class="visual">${it.visual}</div>` : ""}
+      <div class="rrow"><span>${yours}: <span class="mine">${esc(it.given)}</span></span>
+        ${it.ok ? "" : `<span>Right answer: <span class="right">${esc(it.answer)}</span></span>`}</div>
+      ${it.ok ? "" : `<div class="rwhy"><b>What went wrong:</b> ${it.why}</div>`}
+      <details ${it.ok ? "" : "open"}><summary>How to do it</summary>${stepsHTML(it)}</details>
+    </div>`;
+
+  function reviewCard(items, yours = "Your answer") {
+    const wrong = items.filter((it) => !it.ok).length;
+    return `<div class="card review-card" data-show="all">
+      <div class="review-head">
+        <h2>Review the answers</h2>
+        <div class="filter">
+          <button type="button" data-filter="all" aria-pressed="true">All (${items.length})</button>
+          <button type="button" data-filter="wrong" aria-pressed="false">Mistakes (${wrong})</button>
+        </div>
+      </div>
+      <div class="review">${items.map((it, i) => reviewItem(it, i, yours)).join("")}
+        ${wrong ? "" : '<p class="lead only-wrong">No mistakes to show — every answer was right! 🎉</p>'}</div>
+    </div>`;
+  }
+
   // --- tests ---------------------------------------------------------------
-  const T = { id: null, list: [], answers: [], i: 0, results: null, filter: "all" };
+  const T = { id: null, list: [], answers: [], i: 0, active: false, started: 0, kidId: null };
 
   function drawTestMenu() {
-    const best = (id) => store.get(`learn:mass:best:${id}`);
+    const kid = Kids.current();
+    const best = (id) => kid?.stats.best[id];
     panels.test.innerHTML = `
       <div class="card">
         <h2>Tests</h2>
-        <p class="lead">No hints during a test. At the end you get your score, which skills need work, and a review of every question.</p>
+        <p class="lead">No hints during a test. At the end you get your score, Claw Points 🐾, and a review of every question. Every test is saved so a grown-up can look at it later.</p>
         <div class="tests">${Object.entries(TESTS).map(([id, t]) => `
           <button type="button" data-test="${id}"><span style="font-size:24px" aria-hidden="true">${t.icon}</span>${t.name}
-            <small>${t.blurb}</small>${best(id) ? `<span class="best">Best: ${best(id)}%</span>` : ""}</button>`).join("")}</div>
+            <small>${t.blurb}</small>${best(id) !== undefined ? `<span class="best">Your best: ${best(id)}%</span>` : ""}</button>`).join("")}</div>
       </div>`;
     panels.test.querySelectorAll("[data-test]").forEach((b) => b.addEventListener("click", () => startTest(b.dataset.test)));
   }
 
   function startTest(id) {
-    Object.assign(T, { id, list: buildSet(TESTS[id].plan), answers: [], i: 0, results: null, filter: "all" });
+    const kid = Kids.current();
+    if (!kid) return showView("test");
+    Object.assign(T, { id, list: buildSet(TESTS[id].plan), answers: [], i: 0, active: true, started: Date.now(), kidId: kid.id });
     drawTestQuestion();
     root.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   function drawTestQuestion() {
     const q = T.list[T.i], n = T.list.length, last = T.i === n - 1;
+    const kid = Kids.get(T.kidId);
     panels.test.innerHTML = `<div class="card">
-      <div class="qhead"><span>${TESTS[T.id].name} · Question <b>${T.i + 1}</b> of ${n}</span>
-        <button type="button" data-act="quit" style="padding:6px 10px;font-size:13px">Stop test</button></div>
+      <div class="qhead"><span>${kid ? `${kid.avatar} ${esc(kid.name)} · ` : ""}${TESTS[T.id].name} · Question <b>${T.i + 1}</b> of ${n}</span>
+        <button type="button" data-act="quit" class="small">Stop test</button></div>
       <div class="progress" aria-hidden="true"><div style="width:${(T.i / n) * 100}%"></div></div>
       <div data-q></div>
-      <p data-hint style="color:var(--muted);font-size:14px;min-height:20px;margin:8px 0 0"></p>
+      <p data-hint class="hint"></p>
       <div class="qactions">
         <button type="button" data-act="skip">Skip</button>
         <button type="button" class="primary" data-act="next">${last ? "Finish ✓" : "Next →"}</button>
@@ -1197,101 +1410,272 @@
       const act = e.target.closest("[data-act]")?.dataset.act;
       if (act === "next") next();
       if (act === "skip") advance(null);
-      if (act === "quit") drawTestMenu();
+      if (act === "quit") { T.active = false; drawTestMenu(); }
     });
     view.onEnter(next);
     view.focus();
   }
 
   function finishTest() {
-    T.results = T.list.map((q, i) => ({ q, given: T.answers[i] ?? null, ok: isCorrect(q, T.answers[i] ?? null) }));
-    const right = T.results.filter((r) => r.ok).length;
-    const pct = Math.round((right / T.results.length) * 100);
-    const prev = Number(store.get(`learn:mass:best:${T.id}`) || 0);
-    if (pct > prev) store.set(`learn:mass:best:${T.id}`, String(pct));
-    drawResults(right, pct, pct > prev && prev > 0);
+    // Questions are stored as the text and pictures shown, so a parent sees
+    // exactly what the child saw even after the question code changes.
+    const items = T.list.map((q, i) => {
+      const given = T.answers[i] ?? null;
+      const ok = isCorrect(q, given);
+      return {
+        prompt: q.prompt, visual: q.visual || "", given: givenText(q, given), answer: answerText(q), ok,
+        why: ok ? "" : whatWentWrong(q, given), steps: q.steps, skill: q.skill, level: q.level,
+      };
+    });
+    const right = items.filter((it) => it.ok).length;
+    const attempt = {
+      topic: "mass", testId: T.id, testName: TESTS[T.id].name, at: Date.now(),
+      durationSec: Math.round((Date.now() - T.started) / 1000),
+      right, total: items.length, pct: Math.round((right / items.length) * 100), items,
+    };
+    const reward = Kids.finishTest(T.kidId, attempt);
+    T.active = false;
+    celebrate(reward);
+    drawResults(attempt, reward);
   }
 
-  function drawResults(right, pct, newBest) {
-    const n = T.results.length;
-    const stars = pct >= 90 ? 3 : pct >= 70 ? 2 : pct >= 50 ? 1 : 0;
-    const message = pct === 100 ? "Perfect score! You really know your masses. 🎉"
+  function drawResults(attempt, reward) {
+    const pct = attempt.pct;
+    const message = pct === 100 ? "Purrfect score! You really know your masses. 😻"
       : pct >= 80 ? "Great work! Check the few you missed below."
       : pct >= 60 ? "Good effort. Read through the mistakes below — they show exactly how to fix them."
       : "Keep going! Read the review below, have another look at the Learn tab, then try some practice.";
-
-    const bySkill = {};
-    for (const r of T.results) {
-      const s = (bySkill[r.q.skill] ||= { right: 0, total: 0 });
-      s.total += 1;
-      if (r.ok) s.right += 1;
-    }
-    const missedSkills = Object.keys(bySkill).filter((s) => bySkill[s].right < bySkill[s].total);
-    const skillRows = Object.entries(bySkill).map(([s, v]) => {
-      const p = v.right / v.total;
-      const colour = p >= 0.8 ? "var(--good)" : p >= 0.5 ? "var(--u-kg)" : "var(--bad)";
-      return `<div class="skill"><span>${SKILLS[s]}</span><div class="bar"><div style="width:${Math.max(p * 100, 3)}%;background:${colour}"></div></div><span class="n">${v.right}/${v.total}</span></div>`;
-    }).join("");
+    const wrong = attempt.items.filter((it) => !it.ok);
+    const missedSkills = [...new Set(wrong.map((it) => it.skill))];
+    const kid = Kids.get(T.kidId);
+    const rewardBox = reward ? `
+      <div class="reward-box">
+        <div class="reward-total">+${reward.points} 🐾 Claw Points</div>
+        <ul>${reward.lines.map(([p, why]) => `<li><span>${why}</span><b>+${p}</b></li>`).join("")}</ul>
+        ${reward.newBadges.map((b) => `<div class="badge-new">${b.icon} New badge: <b>${b.name}</b></div>`).join("")}
+        ${reward.rankUp ? `<div class="badge-new">${reward.rankUp.icon} You're now a <b>${reward.rankUp.name}</b>!</div>` : ""}
+      </div>` : "";
 
     panels.test.innerHTML = `
       <div class="card result-top">
-        <div class="lead">${TESTS[T.id].name} — results</div>
-        <div class="stars" aria-label="${stars} out of 3 stars">${"⭐".repeat(stars)}${"☆".repeat(3 - stars)}</div>
-        <div class="score">${right} / ${n}</div>
-        <div style="font-size:20px;font-weight:700">${pct}%${newBest ? " · New best! 🏅" : ""}</div>
+        ${scoreBlock(attempt, `${kid ? `${kid.avatar} ${esc(kid.name)} · ` : ""}${attempt.testName} — results`, reward?.newBest)}
         <p>${message}</p>
+        ${rewardBox}
+        <p class="note">${reward ? "✓ Saved for a grown-up to review." : "This result could not be saved."}</p>
         <div class="qactions">
-          ${missedSkills.length ? '<button type="button" class="primary" data-act="weak">🎯 Practise what I missed</button>' : ""}
-          <button type="button" data-act="again">Try this test again</button>
-          <button type="button" data-act="menu">Choose another test</button>
+          ${missedSkills.length ? '<button type="button" class="primary" data-res="weak">🎯 Practise what I missed</button>' : ""}
+          <button type="button" data-res="again">Try this test again</button>
+          <button type="button" data-res="menu">Choose another test</button>
         </div>
       </div>
-      <div class="card"><h2>How you did on each skill</h2><div class="skills">${skillRows}</div></div>
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
-          <h2 style="margin:0">Review your answers</h2>
-          <div class="filter">
-            <button type="button" data-filter="all" aria-pressed="true">All (${n})</button>
-            <button type="button" data-filter="wrong" aria-pressed="false">Mistakes (${n - right})</button>
-          </div>
-        </div>
-        <div class="review" data-review style="margin-top:12px"></div>
-      </div>`;
+      <div class="card"><h2>How you did on each skill</h2>${skillBars(skillTally(attempt.items))}</div>
+      ${reviewCard(attempt.items)}`;
 
-    const drawReview = () => {
-      const list = panels.test.querySelector("[data-review]");
-      const rows = T.results.map((r, i) => ({ ...r, i })).filter((r) => T.filter === "all" || !r.ok);
-      list.innerHTML = rows.length ? rows.map(({ q, given, ok, i }) => `
-        <div class="ritem ${ok ? "ok" : ""}">
-          <div class="rq">${ok ? "✅" : "❌"} ${i + 1}. ${q.prompt}</div>
-          ${q.visual ? `<div class="visual">${q.visual}</div>` : ""}
-          <div class="rrow"><span>Your answer: <span class="mine">${esc(givenText(q, given))}</span></span>
-            ${ok ? "" : `<span>Right answer: <span class="right">${esc(answerText(q))}</span></span>`}</div>
-          ${ok ? "" : `<div style="margin-top:8px;font-size:15px"><b>What went wrong:</b> ${whatWentWrong(q, given)}</div>`}
-          <details ${ok ? "" : "open"}><summary>How to do it</summary>${stepsHTML(q)}</details>
-        </div>`).join("") : '<p class="lead">No mistakes to show — every answer was right! 🎉</p>';
-      panels.test.querySelectorAll("[data-filter]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.filter === T.filter)));
-    };
-    drawReview();
-
-    panels.test.addEventListener("click", function onClick(e) {
-      const f = e.target.closest("[data-filter]");
-      if (f) { T.filter = f.dataset.filter; drawReview(); return; }
-      // The "Finish" click that drew this page is still bubbling, so ignore
-      // anything that is not one of this page's own buttons.
-      const act = e.target.closest("[data-act]")?.dataset.act;
-      if (!["again", "menu", "weak"].includes(act)) return;
-      panels.test.removeEventListener("click", onClick);
+    panels.test.querySelector(".result-top .qactions").addEventListener("click", (e) => {
+      const act = e.target.closest("[data-res]")?.dataset.res;
       if (act === "again") startTest(T.id);
       if (act === "menu") drawTestMenu();
       if (act === "weak") {
-        const levels = [...new Set(T.results.filter((r) => !r.ok).map((r) => r.q.level))];
         drawTestMenu();
         showView("practice");
-        startPractice(levels, missedSkills);
+        startPractice([...new Set(wrong.map((it) => it.level))], missedSkills);
       }
     });
   }
 
+  // --- rewards -------------------------------------------------------------
+  function drawRewards() {
+    const kid = Kids.current();
+    if (!kid) return;
+    const { rank, next, progress, toNext } = Kids.rankFor(kid.points);
+    const earned = Kids.BADGES.filter((b) => kid.badges[b.id]).length;
+    const pack = Kids.list().sort((a, b) => b.points - a.points);
+    const P$ = Kids.POINTS;
+    panels.rewards.innerHTML = `
+      <div class="card hero">
+        <div class="hero-av" aria-hidden="true">${kid.avatar}</div>
+        <h2>${esc(kid.name)}</h2>
+        <div class="claw-big">🐾 ${kid.points} <small>Claw Points</small></div>
+        <div class="rank-line">${rank.icon} ${rank.name}</div>
+        <div class="rank-bar" aria-hidden="true"><div style="width:${Math.round(progress * 100)}%"></div></div>
+        <div class="note">${next ? `${toNext} more 🐾 to become a <b>${next.icon} ${next.name}</b>` : "You are the top cat! 🦁👑"}</div>
+      </div>
+
+      <div class="card">
+        <h2>Badges <small class="muted">${earned} of ${Kids.BADGES.length}</small></h2>
+        <div class="badges">${Kids.BADGES.map((b) => `
+          <div class="badge ${kid.badges[b.id] ? "" : "locked"}">
+            <div class="b-icon" aria-hidden="true">${kid.badges[b.id] ? b.icon : "🔒"}</div>
+            <b>${b.name}</b><small>${kid.badges[b.id] ? `Earned ${new Date(kid.badges[b.id]).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}` : b.how}</small>
+          </div>`).join("")}</div>
+      </div>
+
+      <div class="card">
+        <h2>How to earn Claw Points 🐾</h2>
+        <table class="guide">
+          <tbody>
+            <tr><td>Right answer in practice</td><td><b>Easy +${P$.practice.easy} · Medium +${P$.practice.medium} · Hard +${P$.practice.hard}</b></td></tr>
+            <tr><td>Every ${P$.streakEvery} right in a row</td><td><b>+${P$.streakBonus} bonus</b></td></tr>
+            <tr><td>Right answer in a test</td><td><b>Easy +${P$.test.easy} · Medium +${P$.test.medium} · Hard +${P$.test.hard}</b></td></tr>
+            <tr><td>Finish a test</td><td><b>+${P$.testDone}</b></td></tr>
+            <tr><td>100% on a test — Purrfect!</td><td><b>+${P$.purrfect}</b></td></tr>
+            <tr><td>Beat your best score</td><td><b>+${P$.newBest}</b></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>Cat ranks</h2>
+        <div class="ranks">${Kids.RANKS.map((r) => `
+          <div class="rank ${r === rank ? "here" : kid.points >= r.min ? "done" : ""}"><span aria-hidden="true">${r.icon}</span><b>${r.name}</b><small>${r.min} 🐾</small></div>`).join("")}</div>
+      </div>
+
+      ${pack.length > 1 ? `<div class="card">
+        <h2>The family cat pack</h2>
+        <div class="pack">${pack.map((k, i) => `
+          <div class="pack-row ${k === kid ? "me" : ""}"><span class="pos">${i + 1}</span><span class="av" aria-hidden="true">${k.avatar}</span>
+            <span class="nm">${esc(k.name)}<small>${Kids.rankFor(k.points).rank.name}</small></span><b>🐾 ${k.points}</b></div>`).join("")}</div>
+      </div>` : ""}
+
+      <div class="card">
+        <h2>Recent Claw Points</h2>
+        ${kid.log.length ? `<div class="log">${kid.log.slice(0, 15).map((l) => `
+          <div class="log-row"><span>${esc(l.why)}<small>${when(l.at)}</small></span><b>+${l.pts} 🐾</b></div>`).join("")}</div>`
+          : '<p class="lead">Nothing yet — go and earn some in Practice or a Test!</p>'}
+      </div>`;
+  }
+
+  // --- parents -------------------------------------------------------------
+  const PV = { kid: "all", open: null, status: "" };
+
+  function kidSummary(k) {
+    const atts = Kids.attempts(k.id);
+    const avg = atts.length ? Math.round(atts.reduce((s, a) => s + a.pct, 0) / atts.length) : null;
+    const { rank } = Kids.rankFor(k.points);
+    const bySkill = skillTally(atts.flatMap((a) => a.items));
+    const weakest = Object.entries(bySkill).filter(([, v]) => v.total >= 3)
+      .sort((a, b) => a[1].right / a[1].total - b[1].right / b[1].total)[0];
+    const pr = k.stats.practiceAnswered ? Math.round((100 * k.stats.practiceRight) / k.stats.practiceAnswered) : null;
+    const badges = Kids.BADGES.filter((b) => k.badges[b.id]).length;
+    return `<div class="card kid-sum">
+      <div class="ks-head"><span class="av" aria-hidden="true">${k.avatar}</span>
+        <div><h2>${esc(k.name)}</h2><div class="lead">${rank.icon} ${rank.name} · 🐾 ${k.points} Claw Points · ${badges}/${Kids.BADGES.length} badges</div></div></div>
+      <div class="stat-grid">
+        <div><b>${atts.length}</b><small>tests taken</small></div>
+        <div><b>${avg === null ? "–" : `${avg}%`}</b><small>average test score</small></div>
+        <div><b>${k.stats.practiceAnswered}</b><small>practice questions${pr === null ? "" : ` · ${pr}% right`}</small></div>
+        <div><b>${atts[0] ? when(atts[0].at) : "–"}</b><small>last test</small></div>
+      </div>
+      <div class="chips">${Object.entries(TESTS).map(([id, t]) => {
+        const b = k.stats.best[id];
+        return `<span class="chip">${t.icon} ${t.name.replace(" test", "")} best: <b>${b === undefined ? "–" : `${b}%`}</b></span>`;
+      }).join("")}</div>
+      ${Object.keys(bySkill).length ? `<h3>Skills across all tests</h3>${skillBars(bySkill)}` : ""}
+      ${weakest && weakest[1].right < weakest[1].total ? `<div class="tip">🎯 Needs the most work: <b>${SKILLS[weakest[0]] || esc(weakest[0])}</b> — ${weakest[1].right} of ${weakest[1].total} right in tests.</div>` : ""}
+    </div>`;
+  }
+
+  function drawParents() {
+    if (PV.open) return drawParentAttempt(PV.open);
+    const kids = Kids.list();
+    if (PV.kid !== "all" && !Kids.get(PV.kid)) PV.kid = "all";
+    const shown = PV.kid === "all" ? kids : kids.filter((k) => k.id === PV.kid);
+    const attempts = Kids.attempts(PV.kid === "all" ? null : PV.kid);
+    const chips = [["all", "Everyone"], ...kids.map((k) => [k.id, `${k.avatar} ${esc(k.name)}`])];
+    panels.parents.innerHTML = `
+      <div class="card">
+        <h2>👪 Parent review</h2>
+        <p class="lead">Every finished test is saved here with each answer, what went wrong and the right method. Results are kept in this browser, on this device.</p>
+        ${kids.length
+          ? `<div class="filter">${chips.map(([id, label]) => `<button type="button" data-par="filter" data-id="${id}" aria-pressed="${PV.kid === id}">${label}</button>`).join("")}</div>`
+          : "<p>No learners yet. Children add their name when they open Practice, Test or Rewards.</p>"}
+      </div>
+      ${shown.map(kidSummary).join("")}
+      <div class="card">
+        <h2>Saved tests <small class="muted">${attempts.length}</small></h2>
+        ${attempts.length ? `<div class="att-list">${attempts.map((a) => `
+          <button type="button" class="att-row" data-par="open" data-id="${a.id}">
+            <span class="av" aria-hidden="true">${a.avatar}</span>
+            <span class="att-main"><b>${esc(a.kidName)}</b> · ${esc(a.testName)}<small>${when(a.at)} · took ${duration(a.durationSec)}</small></span>
+            <span class="att-score ${pctClass(a.pct)}">${a.right}/${a.total}<small>${a.pct}%</small></span>
+          </button>`).join("")}</div>` : '<p class="lead">No tests taken yet.</p>'}
+      </div>
+      <div class="card">
+        <h2>Backup and other devices</h2>
+        <p>To look at results on a different phone or computer, export a backup here and import it there. Importing adds to what is already saved — nothing is overwritten.</p>
+        <div class="qactions">
+          <button type="button" data-par="export">⬇️ Export backup</button>
+          <button type="button" data-par="import">⬆️ Import backup</button>
+        </div>
+        <input type="file" id="import-file" accept=".json,application/json" hidden>
+        <p class="note" role="status">${esc(PV.status)}</p>
+        ${kids.length ? `<h3>Learners</h3><div class="manage">${kids.map((k) => `
+          <div class="manage-row"><span>${k.avatar} ${esc(k.name)} <small>${plural(Kids.attempts(k.id).length, "test")}</small></span>
+            <button type="button" class="danger small" data-par="remove" data-id="${k.id}">Remove</button></div>`).join("")}</div>` : ""}
+      </div>`;
+    PV.status = "";
+  }
+
+  function drawParentAttempt(id) {
+    const a = Kids.attempt(id);
+    if (!a) { PV.open = null; return drawParents(); }
+    panels.parents.innerHTML = `
+      <div class="card"><div class="qactions" style="margin-top:0">
+        <button type="button" data-par="back">← All results</button>
+        <button type="button" class="danger" data-par="delete" data-id="${a.id}">Delete this result</button>
+      </div></div>
+      <div class="card result-top">
+        ${scoreBlock(a, `${a.avatar} ${esc(a.kidName)} · ${esc(a.testName)}`)}
+        <p class="note">${when(a.at)} · took ${duration(a.durationSec)} · earned 🐾 ${a.points}</p>
+      </div>
+      <div class="card"><h2>Skills</h2>${skillBars(skillTally(a.items))}</div>
+      ${reviewCard(a.items, "Answer given")}`;
+  }
+
+  function exportBackup() {
+    const blob = new Blob([Kids.exportData()], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `learning-results-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(link.href), 2000);
+  }
+
+  panels.parents.addEventListener("click", (event) => {
+    const b = event.target.closest("[data-par]");
+    if (!b) return;
+    const { par, id } = b.dataset;
+    if (par === "filter") { PV.kid = id; drawParents(); }
+    if (par === "open") { PV.open = id; drawParents(); root.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    if (par === "back") { PV.open = null; drawParents(); }
+    if (par === "delete" && confirmed(b, "Tap again to delete")) { Kids.deleteAttempt(id); PV.open = null; drawParents(); }
+    if (par === "remove" && confirmed(b, "Tap again: removes their points and tests")) { Kids.remove(id); onKidChange(); drawParents(); }
+    if (par === "export") exportBackup();
+    if (par === "import") panels.parents.querySelector("#import-file").click();
+  });
+
+  panels.parents.addEventListener("change", async (event) => {
+    const input = event.target;
+    if (input.id !== "import-file" || !input.files[0]) return;
+    try {
+      const result = Kids.importData(await input.files[0].text(), sanitizeHTML);
+      PV.status = `Imported ${plural(result.attemptsAdded, "test")} and ${plural(result.kidsAdded, "new learner")}.`;
+    } catch (err) {
+      PV.status = err instanceof SyntaxError ? "That file is not a learning backup." : err.message;
+    }
+    drawLearnerBar();
+    drawParents();
+  });
+
+  // Another tab on this device changed the saved data.
+  window.addEventListener("learnkids:change", () => {
+    drawLearnerBar();
+    if (!panels.rewards.hidden) drawRewards();
+    if (!panels.parents.hidden) drawParents();
+  });
+
+  drawLearnerBar();
   drawTestMenu();
 })();

@@ -105,9 +105,34 @@ Topic 1 is **mass: milligrams, grams, kilograms and tonnes**, in three parts:
   score, a per-skill breakdown and a review of every question; "Practise what I
   missed" drills just the weak skills. Best scores are kept in the browser.
 
-Questions are generated, so no two rounds are the same. It lives in
-`docs/learn/mass.js` and `docs/learn/mass.css`. Opening the Learn tab does not
-take a seat in the family game.
+Questions are generated, so no two rounds are the same. Opening the Learn tab
+does not take a seat in the family game.
+
+### Learners, Claw Points and the parent page
+
+- **Who's learning?** Practice, tests and rewards ask for a name and a cat
+  avatar first, so each child's points and tests are kept apart. **Switch**
+  changes child.
+- **🐾 Claw Points.** Practice: Easy +1, Medium +2, Hard +3 per right answer,
+  +5 for every 5 in a row. Tests: Easy +2, Medium +3, Hard +5 per right answer,
+  +10 for finishing, +25 for 100%, +10 for beating your best.
+- **Cat ranks** from Tiny Kitten to Lion, and 11 cat badges (Yarn Ball Streak,
+  Nine Lives, Purrfect Score…). The Rewards tab shows them, plus the family
+  "cat pack" when there is more than one child.
+- **👪 Parents** lists every finished test with the child's answers, what went
+  wrong and the method, plus a summary per child (average, best per test,
+  practice accuracy, weakest skill). Results can be deleted.
+
+Everything is stored in the browser's `localStorage` on the device the children
+use — nothing goes to a server. **Export backup** / **Import backup** on the
+Parents tab moves results to another device; importing merges and never
+overwrites, and imported question text is cleaned before it is shown.
+
+| File | What it does |
+| --- | --- |
+| `docs/learn/mass.js` | Lessons, question generators, practice, tests, rewards and parent pages. |
+| `docs/learn/kids.js` | Learners, saved tests, Claw Points, ranks, badges, backup. |
+| `docs/learn/mass.css` | Styles for the Learn tab. |
 
 ## Working on it
 
@@ -115,7 +140,7 @@ take a seat in the family game.
 npm run preview     # serve docs/ at http://127.0.0.1:8790
 npm run test:sync   # two clients, real broker, full protocol
 npm run opponent ABCD "Cousin"   # a bot that joins room ABCD and plays
-npm run test:learn  # generates thousands of mass questions and checks each one
+npm run test:learn  # checks thousands of generated questions, plus points/badges/backup
 ```
 
 `test:sync` covers retained-state handover, seating, a full round, the rematch,
