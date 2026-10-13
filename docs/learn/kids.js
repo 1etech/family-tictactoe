@@ -12,6 +12,16 @@
 
   const AVATARS = ["🐱", "😺", "😸", "😻", "🐈", "🐈‍⬛", "🐯", "🦁"];
 
+  // Grown-ups get a male or female animal; the pictures are in avatars.js.
+  const PARENT_AVATARS = [
+    { id: "lion-m", name: "Lion" }, { id: "lion-f", name: "Lioness" },
+    { id: "tiger-m", name: "Tiger" }, { id: "tiger-f", name: "Tigress" },
+    { id: "elephant-m", name: "Papa Elephant" }, { id: "elephant-f", name: "Mama Elephant" },
+    { id: "wolf-m", name: "Papa Wolf" }, { id: "wolf-f", name: "Mama Wolf" },
+    { id: "bear-m", name: "Papa Bear" }, { id: "bear-f", name: "Mama Bear" },
+  ];
+  const PARENT_IDS = PARENT_AVATARS.map((a) => a.id);
+
   const RANKS = [
     { min: 0, name: "Tiny Kitten", icon: "🐱" },
     { min: 50, name: "Curious Kitten", icon: "😺" },
@@ -50,7 +60,11 @@
   // --- storage -------------------------------------------------------------
   let canSave = true;
   const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  const blank = () => ({ kids: {}, attempts: [], current: null });
+  const blank = () => ({ kids: {}, parents: {}, attempts: [], current: null });
+
+  /** Keeps only well-formed "seen by grown-up" stamps. */
+  const fixSeen = (seen) => Object.fromEntries(Object.entries(seen && typeof seen === "object" ? seen : {})
+    .filter(([id, at]) => typeof id === "string" && Number(at) > 0).map(([id, at]) => [id, Number(at)]));
 
   function fixKid(k) {
     k.points = Number(k.points) || 0;
@@ -71,7 +85,9 @@
       const data = raw ? JSON.parse(raw) : blank();
       data.kids = data.kids && typeof data.kids === "object" ? data.kids : {};
       data.attempts = Array.isArray(data.attempts) ? data.attempts : [];
+      data.parents = data.parents && typeof data.parents === "object" ? data.parents : {};
       Object.values(data.kids).forEach(fixKid);
+      for (const a of data.attempts) a.seenBy = fixSeen(a.seenBy);
       return data;
     } catch {
       canSave = false;
@@ -119,7 +135,7 @@
 
   // --- public API ----------------------------------------------------------
   const Kids = {
-    AVATARS, RANKS, BADGES, POINTS, rankFor,
+    AVATARS, PARENT_AVATARS, RANKS, BADGES, POINTS, rankFor,
     canSave: () => canSave,
 
     list: () => Object.values(db.kids).sort((a, b) => a.name.localeCompare(b.name)),
@@ -169,7 +185,7 @@
       const kid = db.kids[id];
       if (!kid) return null;
       const prevBest = kid.stats.best[attempt.testId];
-      Object.assign(attempt, { id: uid(), kidId: kid.id, kidName: kid.name, avatar: kid.avatar });
+      Object.assign(attempt, { id: uid(), kidId: kid.id, kidName: kid.name, avatar: kid.avatar, seenBy: {} });
 
       kid.stats.tests[attempt.testId] = (kid.stats.tests[attempt.testId] || 0) + 1;
       kid.stats.best[attempt.testId] = Math.max(prevBest ?? 0, attempt.pct);
@@ -199,7 +215,39 @@
     attempt: (id) => db.attempts.find((a) => a.id === id) || null,
     deleteAttempt(id) { db.attempts = db.attempts.filter((a) => a.id !== id); save(); },
 
-    exportData: () => JSON.stringify({ app: "family-tictactoe-learn", version: 1, exported: new Date().toISOString(), kids: db.kids, attempts: db.attempts }, null, 1),
+    // Grown-ups review tests. They are not linked to particular children —
+    // any grown-up can see every child's tests — and they earn no points.
+    parents: () => Object.values(db.parents).sort((a, b) => a.name.localeCompare(b.name)),
+    getParent: (id) => db.parents[id] || null,
+
+    /** Adds a grown-up, or returns the existing one with the same name. */
+    addParent(name, avatar) {
+      const n = clean(name, 20);
+      if (!n) return null;
+      let parent = Object.values(db.parents).find((p) => p.name.toLowerCase() === n.toLowerCase());
+      if (!parent) {
+        parent = { id: uid(), name: n, avatar: PARENT_IDS.includes(avatar) ? avatar : PARENT_IDS[0], created: Date.now() };
+        db.parents[parent.id] = parent;
+        save();
+      }
+      return parent;
+    },
+
+    removeParent(id) {
+      delete db.parents[id];
+      for (const a of db.attempts) delete a.seenBy[id];
+      save();
+    },
+
+    /** Records that a grown-up has looked at a test. */
+    markSeen(attemptId, parentId) {
+      const a = db.attempts.find((x) => x.id === attemptId);
+      if (!a || !db.parents[parentId] || a.seenBy[parentId]) return;
+      a.seenBy[parentId] = Date.now();
+      save();
+    },
+
+    exportData: () => JSON.stringify({ app: "family-tictactoe-learn", version: 1, exported: new Date().toISOString(), kids: db.kids, parents: db.parents, attempts: db.attempts }, null, 1),
 
     /**
      * Merges a backup into this device. `sanitize` cleans stored HTML, since a
@@ -228,10 +276,18 @@
           for (const [key, v] of Object.entries(k.stats[f])) mine.stats[f][key] = Math.max(mine.stats[f][key] || 0, Number(v) || 0);
         }
       }
-      const have = new Set(db.attempts.map((a) => a.id));
+      let parentsAdded = 0;
+      for (const p of Object.values(data.parents && typeof data.parents === "object" ? data.parents : {})) {
+        if (!p || typeof p.id !== "string" || db.parents[p.id]) continue;
+        db.parents[p.id] = { id: p.id, name: clean(p.name, 20) || "Grown-up", avatar: PARENT_IDS.includes(p.avatar) ? p.avatar : PARENT_IDS[0], created: Number(p.created) || 0 };
+        parentsAdded++;
+      }
+      const have = new Map(db.attempts.map((a) => [a.id, a]));
       for (const a of data.attempts) {
+        if (a && have.has(a.id)) Object.assign(have.get(a.id).seenBy, fixSeen(a.seenBy));
         if (!a || typeof a.id !== "string" || have.has(a.id) || !db.kids[a.kidId] || !Array.isArray(a.items)) continue;
         db.attempts.push({
+          seenBy: fixSeen(a.seenBy),
           id: a.id, kidId: a.kidId, kidName: clean(a.kidName, 20), avatar: AVATARS.includes(a.avatar) ? a.avatar : AVATARS[0],
           topic: clean(a.topic, 30), testId: clean(a.testId, 20), testName: clean(a.testName, 40),
           at: Number(a.at) || 0, durationSec: Number(a.durationSec) || 0, points: Number(a.points) || 0,
@@ -247,7 +303,7 @@
       }
       db.attempts.sort((x, y) => x.at - y.at);
       save();
-      return { kidsAdded, attemptsAdded };
+      return { kidsAdded, parentsAdded, attemptsAdded };
     },
 
     /** Re-reads storage, e.g. after another tab changed it. */

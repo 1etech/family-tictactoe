@@ -933,6 +933,8 @@
     }
     view = next;
     for (const [name, el] of Object.entries(panels)) el.hidden = name !== shown;
+    // The child's points bar does not belong on the grown-ups' page.
+    bar.hidden = shown === "parents";
     root.querySelectorAll(".subtabs [data-view]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === next)));
     if (shown === "rewards") drawRewards();
     if (shown === "parents") drawParents();
@@ -1546,7 +1548,59 @@
   }
 
   // --- parents -------------------------------------------------------------
-  const PV = { kid: "all", open: null, status: "" };
+  // The grown-up reviewing is remembered only while the page is open, so a
+  // child who opens the Parents tab later is asked who they are.
+  const PV = { kid: "all", open: null, status: "", parentId: null };
+  const pav = (id, size, label) => window.LearnAvatars.svg(id, size, label);
+  const parentName = (id) => Kids.PARENT_AVATARS.find((a) => a.id === id)?.name || "";
+
+  function drawParentWho() {
+    const parents = Kids.parents();
+    const taken = new Set(parents.map((p) => p.avatar));
+    let avatar = (Kids.PARENT_AVATARS.find((a) => !taken.has(a.id)) || Kids.PARENT_AVATARS[0]).id;
+    panels.parents.innerHTML = `<div class="card">
+      <h2>👪 Which grown-up are you?</h2>
+      <p class="lead">Grown-ups can review every child's tests. Grown-ups don't take tests or earn Claw Points.</p>
+      ${parents.length ? `<div class="kid-grid">${parents.map((p) => `
+        <button type="button" class="kid-btn" data-parent="${p.id}">${pav(p.avatar, 64)}<b>${esc(p.name)}</b><small>${parentName(p.avatar)}</small></button>`).join("")}
+      </div><h3>Someone new?</h3>` : ""}
+      <form class="new-kid" autocomplete="off">
+        <label for="parent-name">Your name</label>
+        <input id="parent-name" type="text" maxlength="20" placeholder="e.g. Mum, Dad, Nana">
+        <div class="pick-label">Pick your animal</div>
+        <div class="animal-pick">${Kids.PARENT_AVATARS.map((a) => `
+          <button type="button" data-pav="${a.id}" aria-pressed="${a.id === avatar}">${pav(a.id, 56)}<small>${a.name}</small></button>`).join("")}</div>
+        <p class="form-error" role="alert"></p>
+        <div class="qactions"><button type="submit" class="primary">Continue to parent review</button></div>
+      </form>
+    </div>`;
+
+    const enter = (parent) => {
+      if (!parent) return;
+      PV.parentId = parent.id;
+      drawParents();
+      root.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    panels.parents.querySelectorAll("[data-parent]").forEach((b) =>
+      b.addEventListener("click", () => enter(Kids.getParent(b.dataset.parent))));
+    panels.parents.querySelectorAll("[data-pav]").forEach((b) => b.addEventListener("click", () => {
+      avatar = b.dataset.pav;
+      panels.parents.querySelectorAll("[data-pav]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    }));
+    panels.parents.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const parent = Kids.addParent(panels.parents.querySelector("#parent-name").value, avatar);
+      if (!parent) panels.parents.querySelector(".form-error").textContent = "Type your name first.";
+      enter(parent);
+    });
+  }
+
+  /** "Seen by Mum, Dad" for a saved test. */
+  function seenLine(a) {
+    const names = Object.keys(a.seenBy || {}).map((id) => Kids.getParent(id)).filter(Boolean)
+      .map((p) => `${pav(p.avatar, 20)} ${esc(p.name)}`);
+    return names.length ? `<span class="seen">Seen by ${names.join(", ")}</span>` : "";
+  }
 
   function kidSummary(k) {
     const atts = Kids.attempts(k.id);
@@ -1576,16 +1630,25 @@
   }
 
   function drawParents() {
+    const me = Kids.getParent(PV.parentId);
+    if (!me) { PV.parentId = null; PV.open = null; return drawParentWho(); }
     if (PV.open) return drawParentAttempt(PV.open);
     const kids = Kids.list();
+    const parents = Kids.parents();
     if (PV.kid !== "all" && !Kids.get(PV.kid)) PV.kid = "all";
     const shown = PV.kid === "all" ? kids : kids.filter((k) => k.id === PV.kid);
     const attempts = Kids.attempts(PV.kid === "all" ? null : PV.kid);
     const chips = [["all", "Everyone"], ...kids.map((k) => [k.id, `${k.avatar} ${esc(k.name)}`])];
     panels.parents.innerHTML = `
       <div class="card">
+        <div class="reviewer">
+          ${pav(me.avatar, 52)}
+          <span class="rv-name">Reviewing as <b>${esc(me.name)}</b><small>${parentName(me.avatar)}</small></span>
+          <button type="button" class="small" data-par="switch-parent">Switch</button>
+          <button type="button" class="small" data-par="done">Done</button>
+        </div>
         <h2>👪 Parent review</h2>
-        <p class="lead">Every finished test is saved here with each answer, what went wrong and the right method. Results are kept in this browser, on this device.</p>
+        <p class="lead">Every finished test is saved here with each answer, what went wrong and the right method. Any grown-up can review any child. Results are kept in this browser, on this device.</p>
         ${kids.length
           ? `<div class="filter">${chips.map(([id, label]) => `<button type="button" data-par="filter" data-id="${id}" aria-pressed="${PV.kid === id}">${label}</button>`).join("")}</div>`
           : "<p>No learners yet. Children add their name when they open Practice, Test or Rewards.</p>"}
@@ -1596,7 +1659,8 @@
         ${attempts.length ? `<div class="att-list">${attempts.map((a) => `
           <button type="button" class="att-row" data-par="open" data-id="${a.id}">
             <span class="av" aria-hidden="true">${a.avatar}</span>
-            <span class="att-main"><b>${esc(a.kidName)}</b> · ${esc(a.testName)}<small>${when(a.at)} · took ${duration(a.durationSec)}</small></span>
+            <span class="att-main"><b>${esc(a.kidName)}</b> · ${esc(a.testName)}${a.seenBy?.[me.id] ? "" : ' <span class="new-chip">New</span>'}
+              <small>${when(a.at)} · took ${duration(a.durationSec)}</small>${seenLine(a)}</span>
             <span class="att-score ${pctClass(a.pct)}">${a.right}/${a.total}<small>${a.pct}%</small></span>
           </button>`).join("")}</div>` : '<p class="lead">No tests taken yet.</p>'}
       </div>
@@ -1612,6 +1676,9 @@
         ${kids.length ? `<h3>Learners</h3><div class="manage">${kids.map((k) => `
           <div class="manage-row"><span>${k.avatar} ${esc(k.name)} <small>${plural(Kids.attempts(k.id).length, "test")}</small></span>
             <button type="button" class="danger small" data-par="remove" data-id="${k.id}">Remove</button></div>`).join("")}</div>` : ""}
+        <h3>Grown-ups</h3><div class="manage">${parents.map((p) => `
+          <div class="manage-row">${pav(p.avatar, 32)}<span>${esc(p.name)}${p.id === me.id ? " (you)" : ""} <small>${parentName(p.avatar)}</small></span>
+            <button type="button" class="danger small" data-par="remove-parent" data-id="${p.id}">Remove</button></div>`).join("")}</div>
       </div>`;
     PV.status = "";
   }
@@ -1619,6 +1686,7 @@
   function drawParentAttempt(id) {
     const a = Kids.attempt(id);
     if (!a) { PV.open = null; return drawParents(); }
+    Kids.markSeen(a.id, PV.parentId);
     panels.parents.innerHTML = `
       <div class="card"><div class="qactions" style="margin-top:0">
         <button type="button" data-par="back">← All results</button>
@@ -1627,6 +1695,7 @@
       <div class="card result-top">
         ${scoreBlock(a, `${a.avatar} ${esc(a.kidName)} · ${esc(a.testName)}`)}
         <p class="note">${when(a.at)} · took ${duration(a.durationSec)} · earned 🐾 ${a.points}</p>
+        <p class="note">${seenLine(a)}</p>
       </div>
       <div class="card"><h2>Skills</h2>${skillBars(skillTally(a.items))}</div>
       ${reviewCard(a.items, "Answer given")}`;
@@ -1652,6 +1721,9 @@
     if (par === "back") { PV.open = null; drawParents(); }
     if (par === "delete" && confirmed(b, "Tap again to delete")) { Kids.deleteAttempt(id); PV.open = null; drawParents(); }
     if (par === "remove" && confirmed(b, "Tap again: removes their points and tests")) { Kids.remove(id); onKidChange(); drawParents(); }
+    if (par === "remove-parent" && confirmed(b, "Tap again to remove")) { Kids.removeParent(id); drawParents(); }
+    if (par === "switch-parent") { PV.parentId = null; PV.open = null; drawParents(); }
+    if (par === "done") { PV.parentId = null; PV.open = null; showView("learn"); }
     if (par === "export") exportBackup();
     if (par === "import") panels.parents.querySelector("#import-file").click();
   });
@@ -1661,7 +1733,7 @@
     if (input.id !== "import-file" || !input.files[0]) return;
     try {
       const result = Kids.importData(await input.files[0].text(), sanitizeHTML);
-      PV.status = `Imported ${plural(result.attemptsAdded, "test")} and ${plural(result.kidsAdded, "new learner")}.`;
+      PV.status = `Imported ${plural(result.attemptsAdded, "test")}, ${plural(result.kidsAdded, "new learner")} and ${plural(result.parentsAdded, "new grown-up")}.`;
     } catch (err) {
       PV.status = err instanceof SyntaxError ? "That file is not a learning backup." : err.message;
     }

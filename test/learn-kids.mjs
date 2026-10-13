@@ -87,11 +87,39 @@ const r2 = other.importData(backup);
 assert.equal(r2.attemptsAdded, 0, "importing twice adds nothing");
 assert.throws(() => other.importData('{"hello":1}'), /not a learning backup/);
 
+// Grown-ups: separate from learners, no points, can mark any child's test seen.
+const mum = Kids.addParent("Mum", "lion-f");
+const dad = Kids.addParent("Dad", "bear-m");
+assert.equal(Kids.addParent("mum", "wolf-m").id, mum.id, "same name picks the existing grown-up");
+assert.equal(Kids.addParent("Nana", "dragon").avatar, "lion-m", "unknown animals fall back");
+assert.equal(Kids.addParent(" "), null);
+assert.equal(Kids.parents().length, 3);
+assert.equal(Kids.list().some((k) => k.name === "Mum"), false, "grown-ups are not learners");
+const leoTest = Kids.finishTest(leo.id, attempt("hard", [item(true, "hard")]));
+assert.ok(leoTest);
+const leoAttempt = Kids.attempts(leo.id)[0];
+assert.deepEqual(Object.keys(leoAttempt.seenBy), []);
+Kids.markSeen(leoAttempt.id, mum.id);
+Kids.markSeen(saved.id, dad.id);
+assert.ok(Kids.attempt(leoAttempt.id).seenBy[mum.id] > 0, "any grown-up can review any child");
+assert.ok(Kids.attempt(saved.id).seenBy[dad.id] > 0);
+Kids.markSeen(leoAttempt.id, "nobody");
+assert.equal(Object.keys(Kids.attempt(leoAttempt.id).seenBy).length, 1, "unknown grown-ups are ignored");
+const withParents = Kids.exportData();
+const third = fresh().Kids;
+const r3 = third.importData(withParents);
+assert.equal(r3.parentsAdded, 3);
+assert.ok(third.attempt(leoAttempt.id).seenBy[mum.id] > 0, "seen marks travel in backups");
+Kids.removeParent(mum.id);
+assert.equal(Kids.getParent(mum.id), null);
+assert.equal(Kids.attempt(leoAttempt.id).seenBy[mum.id], undefined, "removing a grown-up clears their marks");
+
 // Deleting.
 Kids.deleteAttempt(saved.id);
 assert.equal(Kids.attempts(mia.id).length, 1);
 Kids.remove(mia.id);
 assert.equal(Kids.get(mia.id), null);
-assert.equal(Kids.attempts().length, 0, "removing a learner removes their tests");
+assert.equal(Kids.attempts(mia.id).length, 0, "removing a learner removes their tests");
+assert.equal(Kids.attempts().length, 1, "other children's tests stay");
 
 console.log("All learner and reward checks passed.");

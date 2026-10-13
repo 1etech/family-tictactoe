@@ -119,9 +119,15 @@ does not take a seat in the family game.
 - **Cat ranks** from Tiny Kitten to Lion, and 11 cat badges (Yarn Ball Streak,
   Nine Lives, Purrfect Score…). The Rewards tab shows them, plus the family
   "cat pack" when there is more than one child.
-- **👪 Parents** lists every finished test with the child's answers, what went
-  wrong and the method, plus a summary per child (average, best per test,
-  practice accuracy, weakest skill). Results can be deleted.
+- **👪 Parents** first asks "Which grown-up are you?" — a name and a male or
+  female animal (lion/lioness, tiger/tigress, and papa/mama elephant, wolf and
+  bear, drawn in `docs/learn/avatars.js`). Grown-ups are not learners: they
+  take no tests and earn no points, and any grown-up can review any child.
+  The page lists every finished test with the child's answers, what went wrong
+  and the method, marks tests **New** until you have opened them and shows who
+  has **seen** each one, plus a summary per child (average, best per test,
+  practice accuracy, weakest skill). Results can be deleted. The grown-up is
+  forgotten when the page closes, so it asks again next time.
 
 Everything is stored in the browser's `localStorage` on the device the children
 use — nothing goes to a server. **Export backup** / **Import backup** on the
@@ -131,7 +137,8 @@ overwrites, and imported question text is cleaned before it is shown.
 | File | What it does |
 | --- | --- |
 | `docs/learn/mass.js` | Lessons, question generators, practice, tests, rewards and parent pages. |
-| `docs/learn/kids.js` | Learners, saved tests, Claw Points, ranks, badges, backup. |
+| `docs/learn/kids.js` | Learners, grown-ups, saved tests, Claw Points, ranks, badges, backup. |
+| `docs/learn/avatars.js` | The ten grown-up animal pictures. |
 | `docs/learn/mass.css` | Styles for the Learn tab. |
 
 ## Working on it
