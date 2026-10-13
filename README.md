@@ -88,12 +88,34 @@ To move the household to a different default room, change `DEFAULT_ROOM` near
 the top of the script in `docs/index.html`. Codes are 4 characters from `A-Z`
 (no `I` or `O`) and `2-9`.
 
+## Learn tab
+
+The page has a second tab, **📚 Learn**, for Year 4 maths (Victorian
+Curriculum, Measurement). Link straight to it with
+`https://1etech.github.io/family-tictactoe/#learn`.
+
+Topic 1 is **mass: milligrams, grams, kilograms and tonnes**, in three parts:
+
+- **Learn** — the four units with everyday examples, the ×1000 / ÷1000 rule,
+  worked conversions with a place-value chart, fractions of a kilogram, an
+  interactive kitchen scale, choosing units, comparing, and a converter.
+- **Practice** — Easy, Medium and Hard. Each answer is marked straight away
+  with what went wrong and how to do it.
+- **Test** — Easy, Medium, Hard (10 questions) or Mixed (12). Results show the
+  score, a per-skill breakdown and a review of every question; "Practise what I
+  missed" drills just the weak skills. Best scores are kept in the browser.
+
+Questions are generated, so no two rounds are the same. It lives in
+`docs/learn/mass.js` and `docs/learn/mass.css`. Opening the Learn tab does not
+take a seat in the family game.
+
 ## Working on it
 
 ```bash
 npm run preview     # serve docs/ at http://127.0.0.1:8790
 npm run test:sync   # two clients, real broker, full protocol
 npm run opponent ABCD "Cousin"   # a bot that joins room ABCD and plays
+npm run test:learn  # generates thousands of mass questions and checks each one
 ```
 
 `test:sync` covers retained-state handover, seating, a full round, the rematch,

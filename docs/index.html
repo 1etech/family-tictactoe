@@ -6,6 +6,7 @@
 <meta name="color-scheme" content="light dark" />
 <title>Family Tic Tac Toe</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✳️</text></svg>" />
+<link rel="stylesheet" href="learn/mass.css" />
 <style>
   :root {
     --bg: #f6f1e8;
@@ -20,6 +21,12 @@
     --win: #fde68a;
     --shadow: 0 1px 2px rgba(43, 37, 32, .06), 0 8px 24px rgba(43, 37, 32, .08);
     --radius: 14px;
+    --good: #15803d;
+    --bad: #b91c1c;
+    --u-mg: #be185d;
+    --u-g: #0369a1;
+    --u-kg: #b45309;
+    --u-t: #475569;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
@@ -34,6 +41,12 @@
       --accent-ink: #1b1510;
       --win: #4d3f12;
       --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+      --good: #4ade80;
+      --bad: #f87171;
+      --u-mg: #f472b6;
+      --u-g: #38bdf8;
+      --u-kg: #fbbf24;
+      --u-t: #94a3b8;
     }
   }
   :root[data-theme="dark"] {
@@ -48,6 +61,12 @@
     --accent-ink: #1b1510;
     --win: #4d3f12;
     --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px rgba(0, 0, 0, .35);
+    --good: #4ade80;
+    --bad: #f87171;
+    --u-mg: #f472b6;
+    --u-g: #38bdf8;
+    --u-kg: #fbbf24;
+    --u-t: #94a3b8;
   }
 
   * { box-sizing: border-box; }
@@ -214,6 +233,15 @@
   .conn.live .dot { background: var(--o); }
   .conn.down .dot { background: var(--x); }
 
+  .tabs {
+    display: inline-flex; gap: 4px; padding: 4px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  }
+  .tabs button { border: none; background: transparent; padding: 9px 16px; font-size: 15px; }
+  .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+  .tabpanel { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .card, .learn-wrap { scroll-margin-top: 72px; }
+
   [hidden] { display: none !important; }
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -223,6 +251,12 @@
 </head>
 <body>
 
+<nav class="tabs" role="tablist" aria-label="Sections">
+  <button type="button" role="tab" data-tab="play" aria-controls="tab-play" aria-selected="true">🎮 Tic Tac Toe</button>
+  <button type="button" role="tab" data-tab="learn" aria-controls="tab-learn" aria-selected="false">📚 Learn</button>
+</nav>
+
+<div id="tab-play" class="tabpanel" role="tabpanel">
 <h1>Family Tic Tac Toe
   <small>One link. Everyone plays, wherever they are.</small>
 </h1>
@@ -307,6 +341,44 @@
 
   <div class="conn" id="conn"><span class="dot"></span><span id="conn-text">connecting…</span></div>
 </section>
+</div>
+
+<div id="tab-learn" class="tabpanel" role="tabpanel" hidden>
+  <div id="learn-root" class="learn-wrap"></div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // Two tabs on one page. "#learn" in the address opens the learning tab, so
+  // that link can be shared on its own; the game keeps using ?room=.
+  const titles = { play: "Family Tic Tac Toe", learn: "Year 4 Maths · Mass" };
+  const buttons = document.querySelectorAll(".tabs [data-tab]");
+
+  function show(name, updateUrl) {
+    for (const button of buttons) {
+      const on = button.dataset.tab === name;
+      button.setAttribute("aria-selected", String(on));
+      document.getElementById(`tab-${button.dataset.tab}`).hidden = !on;
+    }
+    document.title = titles[name];
+    if (updateUrl) {
+      const url = new URL(location.href);
+      url.hash = name === "learn" ? "learn" : "";
+      history.replaceState(null, "", url);
+    }
+    document.dispatchEvent(new CustomEvent("tabchange", { detail: name }));
+  }
+
+  buttons.forEach((button) => button.addEventListener("click", () => show(button.dataset.tab, true)));
+  window.addEventListener("hashchange", () => {
+    if (location.hash === "#learn" || location.hash === "") show(location.hash ? "learn" : "play", false);
+  });
+  show(location.hash === "#learn" ? "learn" : "play", false);
+})();
+</script>
+<script src="learn/mass.js"></script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
 <script>
@@ -870,8 +942,13 @@
   $("family-btn").textContent = `Join the game (${targetRoom})`;
   $("family-btn").addEventListener("click", () => enterRoom(targetRoom));
 
+  // Someone who opens the Learn tab should not take a seat in the family game,
+  // so a returning player only joins once the game tab is actually showing.
+  const autoJoin = () => { if (playerName && !roomCode) enterRoom(targetRoom); };
+  document.addEventListener("tabchange", (event) => { if (event.detail === "play") autoJoin(); });
+
   if (playerName) {
-    enterRoom(targetRoom);
+    if (!document.getElementById("tab-play").hidden) autoJoin();
   } else {
     codeInput.value = targetRoom;
     nameInput.focus();

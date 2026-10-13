@@ -7,6 +7,7 @@
     "preview": "node tools/preview.mjs",
     "deploy": "wrangler deploy -c wrangler.static.jsonc",
     "test:sync": "node test/serverless-sync.mjs",
+    "test:learn": "node test/mass-questions.mjs",
     "opponent": "node tools/opponent.mjs",
     "dev:server": "node server.mjs 8788",
     "test:server": "vitest run",
