@@ -14,7 +14,7 @@ createServer(async (req, res) => {
   const path = (req.url.split("?")[0] === "/" ? "/index.html" : req.url.split("?")[0]).slice(1);
   try {
     const body = await readFile(join(DIR, path));
-    res.writeHead(200, { "Content-Type": TYPES[extname(path)] ?? "application/octet-stream" });
+    res.writeHead(200, { "Content-Type": TYPES[extname(path)] ?? "application/octet-stream", "Cache-Control": "no-store" });
     res.end(body);
   } catch {
     res.writeHead(404).end("not found");

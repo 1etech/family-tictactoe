@@ -6,7 +6,8 @@
 <meta name="color-scheme" content="light dark" />
 <title>Family Tic Tac Toe</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✳️</text></svg>" />
-<link rel="stylesheet" href="learn/mass.css" />
+<!-- Learn files carry ?v=N: bump it when they change so browsers never mix old and new copies. -->
+<link rel="stylesheet" href="learn/learn.css?v=2" />
 <style>
   :root {
     --bg: #f6f1e8;
@@ -407,7 +408,7 @@
 
   // Two tabs on one page. "#learn" in the address opens the learning tab, so
   // that link can be shared on its own; the game keeps using ?room=.
-  const titles = { play: "Family Tic Tac Toe", learn: "Year 4 Maths · Mass" };
+  const titles = { play: "Family Tic Tac Toe", learn: "Year 4 Maths · Measurement" };
   const buttons = document.querySelectorAll(".tabs [data-tab]");
 
   function show(name, updateUrl) {
@@ -432,9 +433,12 @@
   show(location.hash === "#learn" ? "learn" : "play", false);
 })();
 </script>
-<script src="learn/kids.js"></script>
-<script src="learn/avatars.js"></script>
-<script src="learn/mass.js"></script>
+<script src="learn/kids.js?v=2"></script>
+<script src="learn/avatars.js?v=2"></script>
+<script src="learn/common.js?v=2"></script>
+<script src="learn/mass.js?v=2"></script>
+<script src="learn/length.js?v=2"></script>
+<script src="learn/app.js?v=2"></script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
 <script>

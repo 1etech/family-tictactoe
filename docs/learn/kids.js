@@ -33,16 +33,28 @@
   ];
 
   const skill = (k, s) => k.stats.skillRight[s] || 0;
+
+  // Test ids are "easy", "medium", "hard", "mixed" for mass (the first topic,
+  // kept as they were) and "<topic>-easy" and so on for later topics.
+  const LEVELS = ["easy", "medium", "hard", "mixed"];
+  const levelOf = (testId) => String(testId).split("-").pop();
+  const topicOfId = (testId) => (String(testId).includes("-") ? String(testId).split("-")[0] : "mass");
+  /** Finished all four tests of any one topic. */
+  const allFour = (k) => {
+    const done = {};
+    for (const id of Object.keys(k.stats.tests)) (done[topicOfId(id)] ||= new Set()).add(levelOf(id));
+    return Object.values(done).some((set) => LEVELS.every((l) => set.has(l)));
+  };
   const BADGES = [
     { id: "first-pounce", icon: "🐾", name: "First Pounce", how: "Finish your first test", earned: (k) => Object.keys(k.stats.tests).length > 0 },
     { id: "curious", icon: "😺", name: "Curious Kitten", how: "Answer 10 practice questions", earned: (k) => k.stats.practiceAnswered >= 10 },
     { id: "yarn", icon: "🧶", name: "Yarn Ball Streak", how: "Get 5 practice answers right in a row", earned: (k) => k.stats.bestStreak >= 5 },
     { id: "nine-lives", icon: "🐈", name: "Nine Lives", how: "Get 9 practice answers right in a row", earned: (k) => k.stats.bestStreak >= 9 },
-    { id: "whiskers", icon: "⚖️", name: "Scale Whiskers", how: "Read 5 scales correctly", earned: (k) => skill(k, "scale") >= 5 },
+    { id: "whiskers", icon: "⚖️", name: "Scale Whiskers", how: "Read 5 scales or rulers correctly", earned: (k) => skill(k, "scale") >= 5 },
     { id: "mouse", icon: "🐭", name: "Mouse Catcher", how: "Get 10 unit changes right", earned: (k) => skill(k, "convert") >= 10 },
     { id: "purrfect", icon: "😻", name: "Purrfect Score", how: "Get 100% on any test", earned: (k) => Object.values(k.stats.best).some((p) => p === 100) },
-    { id: "lion-heart", icon: "🦁", name: "Lion Heart", how: "Score 70% or more on the Hard test", earned: (k) => (k.stats.best.hard || 0) >= 70 },
-    { id: "tiger", icon: "🐯", name: "Tiger Tester", how: "Finish all four tests", earned: (k) => ["easy", "medium", "hard", "mixed"].every((t) => k.stats.tests[t]) },
+    { id: "lion-heart", icon: "🦁", name: "Lion Heart", how: "Score 70% or more on a Hard test", earned: (k) => Object.entries(k.stats.best).some(([id, p]) => levelOf(id) === "hard" && p >= 70) },
+    { id: "tiger", icon: "🐯", name: "Tiger Tester", how: "Finish all four tests in one topic", earned: allFour },
     { id: "fish", icon: "🐟", name: "Fish Feast", how: "Earn 100 Claw Points", earned: (k) => k.points >= 100 },
     { id: "crown", icon: "👑", name: "Cat Royalty", how: "Earn 500 Claw Points", earned: (k) => k.points >= 500 },
   ];
@@ -238,14 +250,17 @@
     attempt: (id) => db.attempts.find((a) => a.id === id) || null,
 
     /**
-     * Saved tests for the parent page. Filters: kidId, testId, from/to (ms,
-     * inclusive), no (test number), unseenBy (a grown-up's id). Sorts:
-     * newest, oldest, number, child, test, score-high, score-low.
+     * Saved tests for the parent page. Filters: kidId, topic, testId, from/to
+     * (ms, inclusive), no (test number), unseenBy (a grown-up's id). Sorts:
+     * newest, oldest, number, child, test (by topicOrder, then level),
+     * score-high, score-low. Tests saved before topics existed are mass.
      */
-    findAttempts({ kidId, testId, from, to, no, unseenBy, sort = "newest" } = {}) {
-      const TEST_ORDER = ["easy", "medium", "hard", "mixed"];
+    findAttempts({ kidId, topic, testId, from, to, no, unseenBy, sort = "newest", topicOrder = [] } = {}) {
+      const topicOf = (a) => a.topic || "mass";
+      const testRank = (a) => topicOrder.indexOf(topicOf(a)) * 10 + LEVELS.indexOf(levelOf(a.testId));
       const list = db.attempts.filter((a) =>
         (!kidId || a.kidId === kidId)
+        && (!topic || topicOf(a) === topic)
         && (!testId || a.testId === testId)
         && (!from || a.at >= from)
         && (!to || a.at <= to)
@@ -257,7 +272,7 @@
         oldest: (x, y) => -newest(x, y),
         number: (x, y) => y.no - x.no,
         child: (x, y) => x.kidName.localeCompare(y.kidName) || newest(x, y),
-        test: (x, y) => TEST_ORDER.indexOf(x.testId) - TEST_ORDER.indexOf(y.testId) || newest(x, y),
+        test: (x, y) => testRank(x) - testRank(y) || newest(x, y),
         "score-high": (x, y) => y.pct - x.pct || newest(x, y),
         "score-low": (x, y) => x.pct - y.pct || newest(x, y),
       };

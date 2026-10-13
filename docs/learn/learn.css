@@ -1,4 +1,4 @@
-/* Learning tab: Year 4 mass topic. Colours come from the tokens in index.html. */
+/* Learning tab: Year 4 measurement topics. Colours come from the tokens in index.html. */
 
 .learn-wrap { width: 100%; max-width: 760px; display: flex; flex-direction: column; gap: 16px; }
 
@@ -10,6 +10,16 @@
 }
 .subtabs button { border: none; background: transparent; padding: 10px 4px; font-size: 15px; display: flex; align-items: center; justify-content: center; gap: 6px; }
 .subtabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+
+/* topic picker */
+.topic-bar { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.topic-bar button {
+  display: flex; align-items: center; gap: 10px; text-align: left; padding: 10px 14px;
+  background: var(--panel); border: 2px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.topic-bar button .ti { font-size: 28px; line-height: 1; }
+.topic-bar button small { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.topic-bar button[aria-pressed="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); }
 
 .card {
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
@@ -46,6 +56,11 @@
 .u-g  { --u: var(--u-g); }
 .u-kg { --u: var(--u-kg); }
 .u-t  { --u: var(--u-t); }
+/* Length borrows the same four colours, smallest unit to biggest. */
+.u-mm { --u: var(--u-mg); }
+.u-cm { --u: var(--u-g); }
+.u-m  { --u: var(--u-kg); }
+.u-km { --u: var(--u-t); }
 
 .units { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-top: 12px; }
 .unit {
@@ -132,6 +147,41 @@
 .how-read { margin: 8px 0 0; padding-left: 20px; font-size: 14px; }
 
 .balance { display: block; width: min(100%, 380px); margin: 8px auto 0; height: auto; }
+
+/* ruler (length) */
+.r-body { fill: color-mix(in srgb, var(--u-kg) 22%, var(--panel)); stroke: var(--u-kg); stroke-width: 1.5; }
+.r-tick { stroke: var(--ink); stroke-width: 1.2; }
+.r-guide { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.obj-pencil { fill: #f2b705; }
+.obj-eraser { fill: #f08ca8; }
+.obj-wood { fill: #e8c79a; }
+.obj-lead, .obj-crayon-tip { fill: #3b3b3b; }
+.obj-crayon { fill: #e5484d; }
+.obj-ribbon { fill: #3e8ed0; }
+.visual svg.ruler { width: auto; max-width: 100%; height: auto; }
+.ritem .visual svg.ruler { width: auto; max-width: min(100%, 420px); }
+.ruler-demo { display: grid; gap: 12px; }
+.ruler-demo svg { width: 100%; height: auto; max-width: 560px; display: block; margin: 0 auto; }
+.ruler-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.ruler-controls label { margin: 0; display: grid; gap: 4px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.ruler-controls input[type="range"] { width: 100%; accent-color: var(--accent); }
+
+/* place value chart with the split anywhere (length) */
+.pvx { display: inline-grid; margin: 10px 0; font-variant-numeric: tabular-nums; }
+.pvx-c2 { grid-template-columns: repeat(2, 52px); }
+.pvx-c3 { grid-template-columns: repeat(3, 52px); }
+.pvx-c4 { grid-template-columns: repeat(4, 52px); }
+.pvx-c5 { grid-template-columns: repeat(5, 52px); }
+.pvx div { text-align: center; padding: 6px 0; border: 1px solid var(--line); }
+.pvx .h { font-size: 11px; color: var(--muted); background: var(--bg); }
+.pvx .d { font-size: 24px; font-weight: 800; }
+.pvx .d.b { background: color-mix(in srgb, var(--u-kg) 16%, var(--panel)); }
+.pvx .d.s { background: color-mix(in srgb, var(--u-g) 14%, var(--panel)); }
+.pvx .lab { font-size: 12px; font-weight: 700; border: none; }
+.pvx .lab.b { color: var(--u-kg); }
+.pvx .lab.s { color: var(--u-g); }
+.pvx .sp1 { grid-column: span 1; } .pvx .sp2 { grid-column: span 2; }
+.pvx .sp3 { grid-column: span 3; } .pvx .sp4 { grid-column: span 4; }
 
 /* explorer */
 .explorer { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
@@ -227,6 +277,7 @@ table.guide th { color: var(--muted); font-size: 12px; text-transform: uppercase
 @media (max-width: 560px) {
   .scale-demo { grid-template-columns: 1fr; }
   .scale-demo svg { max-width: 240px; margin: 0 auto; display: block; }
+  .ruler-controls { grid-template-columns: 1fr; }
   .arrows { grid-template-columns: 1fr; }
   .skill { grid-template-columns: 100px 1fr 46px; }
   .levels button { padding: 12px 4px; }
@@ -439,3 +490,8 @@ label.check input { width: 18px; height: 18px; accent-color: var(--accent); }
   .att-table .c-view { grid-column: 1 / -1; text-align: left; }
   .att-table .c-view button { width: 100%; }
 }
+
+/* parent page: one block per topic in a child's summary */
+.ks-topic { border-top: 1px solid var(--line); margin-top: 14px; }
+.ks-topic h3 { margin-top: 12px; }
+.att-table .c-test small { display: block; }

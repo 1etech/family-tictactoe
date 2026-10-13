@@ -171,6 +171,31 @@ assert.equal(Kids.attempt(leoAttempt.id).seenBy[mum.id], undefined, "removing a 
   assert.equal(K.findAttempts({ no: 1 })[0].kidName, "Amy", "local #1 is untouched");
 }
 
+// Topics: length tests are kept apart from mass ones, and badges work in any topic.
+{
+  const { Kids: K } = fresh();
+  const kid = K.add("Ivy", "😺");
+  const save = (testId, topic, okCount = 1) => {
+    const t = attempt(testId, [item(okCount > 0, "hard"), item(okCount > 1, "hard"), item(okCount > 2, "hard")]);
+    if (topic) t.topic = topic;
+    return K.finishTest(kid.id, t);
+  };
+  save("easy");                      // saved before topics: counts as mass
+  save("length-hard", "length", 3);  // 100%
+  save("length-easy", "length");
+  const ids = (list) => Array.from(list, (a) => a.testId);
+  assert.deepEqual(ids(K.findAttempts({ topic: "length", sort: "oldest" })), ["length-hard", "length-easy"]);
+  assert.deepEqual(ids(K.findAttempts({ topic: "mass" })), ["easy"], "tests without a topic are mass");
+  assert.deepEqual(ids(K.findAttempts({ sort: "test", topicOrder: ["mass", "length"] })), ["easy", "length-easy", "length-hard"]);
+  assert.equal(K.get(kid.id).stats.best["length-hard"], 100);
+  assert.equal(K.get(kid.id).stats.best.hard, undefined, "length scores don't count as mass scores");
+  assert.ok(K.get(kid.id).badges["lion-heart"], "70% on any Hard test earns Lion Heart");
+  assert.ok(!K.get(kid.id).badges.tiger);
+  save("length-medium", "length");
+  const last = save("length-mixed", "length");
+  assert.ok(last.newBadges.some((b) => b.id === "tiger"), "all four tests in one topic earns Tiger Tester");
+}
+
 // Deleting.
 Kids.deleteAttempt(saved.id);
 assert.equal(Kids.attempts(mia.id).length, 1);

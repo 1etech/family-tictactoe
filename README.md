@@ -110,19 +110,28 @@ The page has a second tab, **📚 Learn**, for Year 4 maths (Victorian
 Curriculum, Measurement). Link straight to it with
 `https://1etech.github.io/family-tictactoe/#learn`.
 
-Topic 1 is **mass: milligrams, grams, kilograms and tonnes**, in three parts:
+Pick a topic at the top; the page remembers the last one on each device.
 
-- **Learn** — the four units with everyday examples, the ×1000 / ÷1000 rule,
-  worked conversions with a place-value chart, fractions of a kilogram, an
-  interactive kitchen scale, choosing units, comparing, and a converter.
+- **Topic 1 · ⚖️ Mass** — milligrams, grams, kilograms and tonnes. Every step is
+  ×1000; the lesson has an interactive kitchen scale.
+- **Topic 2 · 📏 Length** — millimetres, centimetres, metres and kilometres.
+  The steps differ (×10, ×100, ×1000), and the lesson has an interactive ruler.
+  Ruler questions include objects that don't start at 0 — the curriculum's
+  "partial units".
+
+Each topic has three parts:
+
+- **Learn** — the four units with everyday benchmarks, the conversion rule,
+  worked conversions with a place-value chart, fractions of a unit, reading
+  the scale or ruler, choosing units, comparing, and a converter.
 - **Practice** — Easy, Medium and Hard. Each answer is marked straight away
   with what went wrong and how to do it.
 - **Test** — Easy, Medium, Hard (10 questions) or Mixed (12). Results show the
   score, a per-skill breakdown and a review of every question; "Practise what I
-  missed" drills just the weak skills. Best scores are kept in the browser.
+  missed" drills just the weak skills. Best scores are kept per topic.
 
 Questions are generated, so no two rounds are the same. Opening the Learn tab
-does not take a seat in the family game.
+does not take a seat in a game.
 
 ### Learners, Claw Points and the parent page
 
@@ -148,7 +157,9 @@ does not take a seat in the family game.
   number (#1, #2, …) that is never reused, and is shown with its date, time and
   the child's name. The Parents tab filters by child, test, date range, test
   number and "only tests I haven't seen", sorts by date, number, child, test or
-  score, and downloads the filtered list as a spreadsheet (CSV).
+  score, and downloads the filtered list as a spreadsheet (CSV). The test
+  filter can show one topic or one test, and each child's summary is split by
+  topic.
 
 Everything is stored in the browser's `localStorage` on the device the children
 use — nothing goes to a server. **Export backup** / **Import backup** on the
@@ -157,10 +168,20 @@ overwrites, and imported question text is cleaned before it is shown.
 
 | File | What it does |
 | --- | --- |
-| `docs/learn/mass.js` | Lessons, question generators, practice, tests, rewards and parent pages. |
+| `docs/learn/common.js` | Shared helpers, answer marking, test building and the list of topics. |
+| `docs/learn/mass.js` | Topic 1: the mass lesson, question generators and tests. |
+| `docs/learn/length.js` | Topic 2: the length lesson, ruler pictures, question generators and tests. |
+| `docs/learn/app.js` | The Learn tab itself: topic picker, practice, tests, rewards and parent pages. |
 | `docs/learn/kids.js` | Learners, grown-ups, saved tests, Claw Points, ranks, badges, backup. |
 | `docs/learn/avatars.js` | The ten grown-up animal pictures. |
-| `docs/learn/mass.css` | Styles for the Learn tab. |
+| `docs/learn/learn.css` | Styles for the Learn tab. |
+
+**Adding a topic:** write `docs/learn/<topic>.js` that calls
+`LearnCommon.register({...})` (copy `length.js` for the shape), give its tests
+ids starting `<topic>-`, add a `<script>` line for it before `app.js` in
+`docs/index.html`, and add the file to `test/learn-questions.mjs`. When any
+Learn file changes, bump the `?v=` number on the Learn links in `index.html` so
+browsers don't mix old and new copies.
 
 ## Working on it
 
@@ -168,7 +189,7 @@ overwrites, and imported question text is cleaned before it is shown.
 npm run preview     # serve docs/ at http://127.0.0.1:8790
 npm run test:sync   # two clients, real broker, full protocol
 npm run opponent ABCD "Cousin"   # a bot that joins room ABCD and plays
-npm run test:learn  # checks thousands of generated questions, plus points/badges/backup
+npm run test:learn  # checks thousands of generated questions in every topic, plus points/badges/backup
 ```
 
 `test:sync` covers retained-state handover, seating, a full round, the rematch,
