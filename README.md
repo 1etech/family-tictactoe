@@ -1,13 +1,13 @@
 # Family Tic Tac Toe
 
-**Play: https://1etech.github.io/family-tictactoe/**
+**Play and learn: https://1etech.github.io/family-tictactoe/**
 
-Send that link to anyone. It is permanent, free, and nothing needs to be running
+One link for everything: the page has a **🎮 Tic Tac Toe** tab and a **📚 Learn**
+tab. Send it to anyone. It is permanent, free, and nothing needs to be running
 on anybody's computer.
 
-A real-time tic tac toe game you share with a link. Two people play, anyone else
-who opens the link watches. No accounts, no app, no code to type — everyone who
-opens the bare URL lands in the same room.
+A real-time tic tac toe game with as many rooms as you like. Two people play in
+each room and anyone else in it watches. No accounts and no app.
 
 There are **two builds in here**. The serverless one is the one to deploy.
 
@@ -65,7 +65,9 @@ Be aware of these; they are the cost of having no server.
 - **No referee.** Each browser enforces the rules on itself. Someone technical
   enough could craft a state that cheats. Fine for family, not for strangers.
 - **Public relay.** The moves travel through a broker anyone can connect to.
-  The topic is hashed, not secret. Do not treat the chat as private.
+  The topic is hashed, not secret. Do not treat the chat as private. Listed
+  rooms publish their code, name and players' first names to the room list;
+  untick "Show it in the room list" for a room that should stay invite-only.
 - **Rooms are not owned.** Anyone who opens the link joins the same room and can
   take a free seat.
 - **State lives in the last message**, not a database. If every player closes the
@@ -75,16 +77,30 @@ Be aware of these; they are the cost of having no server.
 
 Send the plain URL. That is the whole setup.
 
-1. First visit asks for a name; after that it goes straight to the board.
-2. The first two people in get X and O. Everyone after that watches and can chat.
-3. **Play again** keeps the running score and alternates who opens.
-4. **Start a separate game** gets a fresh code for a side game.
+1. Type your name. The **Rooms** list shows the family room plus every room
+   that is open right now: who is playing, who is waiting for a partner, and
+   how many are watching. **Join** a room with a free seat or **Watch** a full one.
+2. **➕ Create a new room** gives you a code nobody else is using (it checks the
+   list and peeks at the code before handing it out). Under **Room options**
+   you can name it ("Cousins' table") and choose whether it shows in the list;
+   unlisted rooms are invite-only.
+3. **📨 Invite** shares or copies a link like `…/?room=K7QM`. Whoever opens it
+   goes straight into that room. You can also type the code under
+   **Have a room code?**
+4. The first two people in a room get X and O. Everyone after that watches and
+   can chat. If a room is full, the watcher is offered **Start a new room**.
+5. **Play again** keeps the running score and alternates who opens.
+   **← Rooms** goes back to the list.
 
 Refreshing or losing signal does not lose your seat — you get it back. After two
 minutes away the seat opens so a watcher can step in; **Leave** gives it up
 immediately.
 
-To move the household to a different default room, change `DEFAULT_ROOM` near
+Each room's leader (the lowest player id online in it) republishes a small
+retained summary to a shared lobby topic every 15 seconds. The list hides
+summaries older than 90 seconds, and the last person to leave clears theirs.
+
+To move the household to a different family room, change `DEFAULT_ROOM` near
 the top of the script in `docs/index.html`. Codes are 4 characters from `A-Z`
 (no `I` or `O`) and `2-9`.
 

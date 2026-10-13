@@ -156,7 +156,7 @@
   }
   .roombar .code { font-size: 22px; font-weight: 800; letter-spacing: .22em; }
   .roombar .code-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
-  .roombar button { padding: 9px 12px; font-size: 14px; }
+  .roombar button { padding: 9px 12px; font-size: 14px; white-space: nowrap; }
 
   .scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: stretch; }
   .side {
@@ -233,6 +233,33 @@
   .conn.live .dot { background: var(--o); }
   .conn.down .dot { background: var(--x); }
 
+  .lobby-error { margin: 0; color: var(--x); font-size: 14px; font-weight: 600; }
+  .rooms-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+  .rooms-head h2 { margin: 0; font-size: 17px; }
+  .room-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .room-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .room-item.invited { border-color: var(--accent); }
+  .room-item .ri-main { flex: 1; min-width: 0; }
+  .room-item .ri-name { font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .room-item .ri-code { font-size: 12px; font-weight: 700; letter-spacing: .15em; color: var(--muted); margin-left: 4px; }
+  .room-item .ri-who { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+  .room-item .ri-who.open { color: var(--o); font-weight: 600; }
+  .room-item button { flex: 0 0 auto; padding: 8px 14px; font-size: 14px; }
+  .room-empty { font-size: 14px; color: var(--muted); text-align: center; padding: 6px 0; }
+  .room-opts > summary { cursor: pointer; font-size: 14px; color: var(--muted); font-weight: 600; }
+  .lobby-check { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 14px; color: var(--ink); font-weight: 500; cursor: pointer; }
+  .lobby-check input { width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 auto; }
+  .hint { margin: 0; font-size: 13px; color: var(--muted); }
+  .roombar .code-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .full-note {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px; text-align: center;
+    background: var(--panel); border: 1px dashed var(--accent); border-radius: var(--radius); padding: 12px 14px; font-size: 14px;
+  }
+  .full-note button { padding: 9px 14px; font-size: 14px; }
+
   .tabs {
     display: inline-flex; gap: 4px; padding: 4px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
@@ -268,33 +295,60 @@
       <input id="name-input" type="text" maxlength="20" placeholder="Grandma" autocomplete="nickname" />
     </div>
 
-    <button id="family-btn" class="primary">Join the family game</button>
+    <p id="lobby-error" class="lobby-error" role="alert" hidden></p>
+
+    <div>
+      <div class="rooms-head">
+        <h2>Rooms</h2>
+        <span class="conn" id="lobby-conn"><span class="dot"></span><span id="lobby-conn-text">connecting…</span></span>
+      </div>
+      <ul id="room-list" class="room-list"></ul>
+    </div>
 
     <div class="divider">or</div>
 
-    <button id="create-btn">Start a separate game</button>
-
-    <form id="join-form" class="row">
-      <input id="code-input" type="text" maxlength="4" placeholder="CODE"
-             inputmode="latin" autocomplete="off" autocapitalize="characters"
-             aria-label="Room code" />
-      <button type="submit">Join</button>
+    <form id="create-form" class="stack create-form">
+      <button type="submit" class="primary">➕ Create a new room</button>
+      <details class="room-opts">
+        <summary>Room options</summary>
+        <div class="stack" style="margin-top:10px">
+          <div>
+            <label for="room-name">Room name (optional)</label>
+            <input id="room-name" type="text" maxlength="24" placeholder="Cousins' table" autocomplete="off" />
+          </div>
+          <label class="lobby-check"><input type="checkbox" id="room-listed" checked />
+            Show it in the room list so anyone here can join</label>
+        </div>
+      </details>
+      <p class="hint">You get a new code nobody else is using. Send the invite link to whoever you want to play.</p>
     </form>
 
-    <p id="lobby-error" class="sr-only" role="alert"></p>
+    <form id="join-form" class="stack">
+      <label for="code-input" style="margin:0">Have a room code?</label>
+      <div class="row">
+        <input id="code-input" type="text" maxlength="4" placeholder="CODE"
+               inputmode="latin" autocomplete="off" autocapitalize="characters" />
+        <button type="submit">Join</button>
+      </div>
+    </form>
   </div>
 </section>
 
 <section id="game" hidden>
   <div class="roombar">
-    <div>
-      <div class="code-label">Room code</div>
+    <div style="min-width:0">
+      <div class="code-label" id="room-title">Room code</div>
       <div class="code" id="room-code">----</div>
     </div>
     <div class="row" style="flex:0 0 auto">
-      <button id="share-btn">Copy link</button>
-      <button id="leave-btn">Leave</button>
+      <button id="share-btn">📨 Invite</button>
+      <button id="leave-btn">← Rooms</button>
     </div>
+  </div>
+
+  <div id="full-note" class="full-note" hidden>
+    <span>Both seats are taken, so you're watching. Want to play?</span>
+    <button type="button" id="new-room-btn" class="primary">➕ Start a new room</button>
   </div>
 
   <div class="scoreboard">
@@ -486,6 +540,7 @@
   let heartbeat = null, sweeper = null;
   let brokerIndex = 0;
   let claimAttempts = 0;
+  let joinedAt = 0;            // when this client arrived in the current room
 
   const freshState = () => ({
     v: 1,
@@ -606,18 +661,75 @@
     connText.textContent = text;
   }
 
+  function setLobbyConn(kind, text) {
+    $("lobby-conn").className = "conn " + kind;
+    $("lobby-conn-text").textContent = text;
+  }
+
+  // One connection serves the room list and whichever room you are in.
+  // Every listed room is advertised as a retained message under the lobby
+  // topic, so opening the page shows the live rooms straight away.
+  const lobbyReady = topicFor("lobby").then((key) => `ttt/${key}/rooms`);
+  let lobbyTopic = null;
+
+  async function ensureClient() {
+    if (client) return;
+    lobbyTopic = await lobbyReady;
+    if (!client) openBroker();
+  }
+
   async function connect(code) {
+    if (roomCode) leaveRoomNow();
     roomCode = code;
     $("room-code").textContent = code;
+    $("room-title").textContent = "Room code";
     lobby.hidden = true;
     game.hidden = false;
+    $("full-note").hidden = true;
+    lastAdvert = "";
     setConn("", "connecting…");
 
     const key = await topicFor(code);
+    if (roomCode !== code) return;
+    roomKey = key;
     topicState = `ttt/${key}/state`;
     topicWho = `ttt/${key}/who`;
 
-    openBroker();
+    if (client?.connected) startRoom();
+    else await ensureClient();
+  }
+
+  /** Subscribes to the current room and starts the presence heartbeat. */
+  function startRoom() {
+    if (!roomCode || !topicState || !client?.connected) return;
+    const code = roomCode;
+    joinedAt = Date.now();
+    setConn("live", "connected");
+    // Give the retained state a moment to arrive after the subscription is
+    // confirmed before assuming an empty room. A room the list shows people in
+    // certainly has a state, so keep waiting for it rather than start afresh.
+    let waits = 0;
+    const settle = () => {
+      if (roomCode !== code) return;
+      if (!state && isLive(code) && ++waits < 6) return setTimeout(settle, 1000);
+      settleIn();
+    };
+    client.subscribe([topicState, topicWho], { qos: 1 }, () => setTimeout(settle, 1200));
+
+    announce();
+    clearInterval(heartbeat);
+    heartbeat = setInterval(announce, PRESENCE_EVERY_MS);
+
+    clearInterval(sweeper);
+    sweeper = setInterval(sweep, 5000);
+  }
+
+  /** True when the room list shows someone sitting in this room right now. */
+  function isLive(code) {
+    for (const ad of rooms.values()) {
+      if (ad.code === code && (ad.x || ad.o) && Date.now() - ad.at < ADVERT_STALE_MS) return true;
+    }
+    return false;
   }
 
   function openBroker() {
@@ -630,21 +742,13 @@
     });
 
     client.on("connect", () => {
-      setConn("live", "connected");
-      client.subscribe([topicState, topicWho], { qos: 1 });
-
-      announce();
-      clearInterval(heartbeat);
-      heartbeat = setInterval(announce, PRESENCE_EVERY_MS);
-
-      clearInterval(sweeper);
-      sweeper = setInterval(sweep, 5000);
-
-      // Give the retained state a moment to arrive before assuming an empty room.
-      setTimeout(settleIn, 1800);
+      setLobbyConn("live", "live");
+      client.subscribe(`${lobbyTopic}/+`, { qos: 0 });
+      startRoom();
     });
 
     client.on("message", (topic, payload) => {
+      if (topic.startsWith(lobbyTopic + "/")) return onAdvert(topic, payload);
       let msg;
       try { msg = JSON.parse(payload.toString()); } catch { return; }
 
@@ -657,16 +761,117 @@
       if (topic === topicState) adopt(msg);
     });
 
-    client.on("reconnect", () => setConn("down", "reconnecting…"));
-    client.on("offline", () => setConn("down", "offline"));
+    client.on("reconnect", () => { setConn("down", "reconnecting…"); setLobbyConn("down", "reconnecting…"); });
+    client.on("offline", () => { setConn("down", "offline"); setLobbyConn("down", "offline"); });
 
     client.on("error", () => {
       // A broker can be busy or blocked on some networks; try the next one.
       setConn("down", "switching server…");
+      setLobbyConn("down", "switching server…");
       try { client.end(true); } catch {}
       brokerIndex += 1;
       if (brokerIndex < BROKERS.length * 2) setTimeout(openBroker, 500);
-      else setConn("down", "cannot reach any server");
+      else { setConn("down", "cannot reach any server"); setLobbyConn("down", "cannot reach any server"); }
+    });
+  }
+
+  // --- room list -----------------------------------------------------------
+  const ADVERT_EVERY_MS = 15000;
+  const ADVERT_STALE_MS = 90000;      // not refreshed this long => not shown
+  const ADVERT_FORGET_MS = 30 * 60000; // this old => cleared off the broker
+  const rooms = new Map();             // advert topic -> { code, name, x, o, watchers, at }
+  let roomKey = null;
+  let lastAdvert = "", lastAdvertAt = 0;
+  let pendingRoom = null;              // options for a room this client is creating
+
+  function onAdvert(topic, payload) {
+    const text = payload.toString();
+    if (!text) { rooms.delete(topic); return renderLobby(); }
+    let ad;
+    try { ad = JSON.parse(text); } catch { return; }
+    if (!ad || typeof ad.code !== "string" || !/^[A-Z0-9]{4}$/.test(ad.code) || typeof ad.at !== "number") return;
+    if (Date.now() - ad.at > ADVERT_FORGET_MS) {
+      // Left behind by a room everyone closed without saying goodbye.
+      client?.publish(topic, "", { retain: true, qos: 0 });
+      rooms.delete(topic);
+      return renderLobby();
+    }
+    rooms.set(topic, {
+      code: ad.code,
+      name: clean(ad.name, 24),
+      x: clean(ad.x, 20) || null,
+      o: clean(ad.o, 20) || null,
+      watchers: Number.isInteger(ad.watchers) && ad.watchers > 0 ? Math.min(ad.watchers, 99) : 0,
+      at: ad.at,
+    });
+    renderLobby();
+  }
+
+  const onlineIds = () => [...peers.entries()]
+    .filter(([, p]) => Date.now() - p.at < PEER_STALE_MS)
+    .map(([id]) => id)
+    .sort();
+
+  /** The room's leader keeps its entry in the room list up to date. */
+  function advertise() {
+    if (!state || !roomKey || !client?.connected) return;
+    const topic = `${lobbyTopic}/${roomKey}`;
+    if (state.listed === false) {
+      if (lastAdvert !== "hidden") client.publish(topic, "", { retain: true, qos: 0 });
+      lastAdvert = "hidden";
+      return;
+    }
+    const seated = new Set([state.seats.X?.id, state.seats.O?.id].filter(Boolean));
+    const ad = {
+      code: roomCode,
+      name: state.name || (roomCode === DEFAULT_ROOM ? "Family room" : ""),
+      x: state.seats.X?.name || null,
+      o: state.seats.O?.name || null,
+      watchers: onlineIds().filter((id) => !seated.has(id)).length,
+    };
+    const key = JSON.stringify(ad);
+    if (key === lastAdvert && Date.now() - lastAdvertAt < ADVERT_EVERY_MS) return;
+    lastAdvert = key;
+    lastAdvertAt = Date.now();
+    client.publish(topic, JSON.stringify({ ...ad, at: Date.now() }), { retain: true, qos: 0 });
+  }
+
+  /** A code that is not in the list and has no one sitting in it right now. */
+  async function freshCode() {
+    const randomCode = () => Array.from({ length: 4 },
+      () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join("");
+    const listed = new Set([DEFAULT_ROOM, ...[...rooms.values()].map((r) => r.code)]);
+    for (let tries = 0; tries < 8; tries++) {
+      const code = randomCode();
+      if (listed.has(code)) continue;
+      if (await roomIsFree(code)) return code;
+    }
+    return randomCode();
+  }
+
+  /** Peeks at a room's retained state without joining it. */
+  async function roomIsFree(code) {
+    if (!client?.connected) return true;
+    const topic = `ttt/${await topicFor(code)}/state`;
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = (free) => {
+        if (done) return;
+        done = true;
+        client?.removeListener("message", peek);
+        client?.unsubscribe(topic);
+        resolve(free);
+      };
+      const peek = (t, payload) => {
+        if (t !== topic) return;
+        try {
+          const s = JSON.parse(payload.toString());
+          finish(!(s?.seats?.X || s?.seats?.O));
+        } catch { finish(true); }
+      };
+      client.on("message", peek);
+      client.subscribe(topic, { qos: 1 });
+      setTimeout(() => finish(true), 1200);
     });
   }
 
@@ -680,6 +885,10 @@
   function settleIn() {
     if (!state) {
       state = freshState();
+      const options = pendingRoom?.code === roomCode ? pendingRoom : null;
+      state.name = options?.name || (roomCode === DEFAULT_ROOM ? "Family room" : "");
+      state.listed = options ? options.listed : true;
+      pendingRoom = null;
       state.seats.X = { id: playerId, name: playerName || "Player" };
       pushChat(state, "", `${playerName || "Player"} joined as X.`);
       client.publish(topicState, JSON.stringify(state), { retain: true, qos: 1 });
@@ -714,16 +923,16 @@
 
     // Free a seat whose holder has been gone a while. Only the lowest-id client
     // present does it, so everyone does not publish the same change at once.
-    const online = [...peers.entries()]
-      .filter(([, p]) => Date.now() - p.at < PEER_STALE_MS)
-      .map(([id]) => id)
-      .sort();
+    const online = onlineIds();
     if (online[0] !== playerId) return render();
+    advertise();
 
     for (const seat of ["X", "O"]) {
       const holder = state.seats[seat];
       if (!holder || holder.id === playerId) continue;
-      const lastSeen = peers.get(holder.id)?.at ?? 0;
+      // Someone we have not heard from yet counts from when we arrived, so a
+      // newcomer does not clear the seats of players whose heartbeat is on its way.
+      const lastSeen = peers.get(holder.id)?.at ?? joinedAt;
       if (Date.now() - lastSeen > SEAT_GRACE_MS) {
         commit((s) => {
           const name = s.seats[seat]?.name ?? "Someone";
@@ -736,14 +945,23 @@
     render();
   }
 
-  function disconnect() {
+  /** Leaves the room but keeps the connection for the room list. */
+  function leaveRoomNow() {
     clearInterval(heartbeat);
     clearInterval(sweeper);
-    try { client?.end(true); } catch {}
-    client = null;
+    if (client?.connected && topicState) {
+      // The last one out takes the room off the list.
+      const others = onlineIds().filter((id) => id !== playerId);
+      if (!others.length && roomKey) client.publish(`${lobbyTopic}/${roomKey}`, "", { retain: true, qos: 0 });
+      client.unsubscribe([topicState, topicWho]);
+    }
+    roomCode = null;
+    roomKey = null;
+    topicState = topicWho = null;
     state = null;
     peers = new Map();
     claimAttempts = 0;
+    lastChatId = 0;
   }
 
   // --- rendering -----------------------------------------------------------
@@ -805,6 +1023,9 @@
     statusEl.textContent = text;
     statusEl.classList.toggle("win", isWin);
 
+    $("full-note").hidden = !(you === null && ready);
+    $("room-title").textContent = state.name ? `${state.name} · code` : "Room code";
+
     rematchBtn.disabled = !(over && you !== null);
     resetBtn.disabled = you === null;
 
@@ -842,6 +1063,7 @@
 
   // --- lobby & controls ----------------------------------------------------
   const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const roomList = $("room-list");
 
   function currentName() {
     const name = clean(nameInput.value, 20);
@@ -852,7 +1074,25 @@
     return playerName || "Player";
   }
 
+  let errorTimer = null;
+  function lobbyMessage(text) {
+    lobbyError.textContent = text;
+    lobbyError.hidden = !text;
+    clearTimeout(errorTimer);
+    if (text) errorTimer = setTimeout(() => lobbyMessage(""), 5000);
+  }
+
+  /** Everyone needs a name before they sit down, so the other player knows who it is. */
+  function haveName() {
+    if (clean(nameInput.value, 20)) return true;
+    lobbyMessage("Type your name first.");
+    nameInput.focus();
+    return false;
+  }
+
   function enterRoom(code) {
+    if (!haveName()) return;
+    lobbyMessage("");
     currentName();
     const url = new URL(location.href);
     url.searchParams.set("room", code);
@@ -860,20 +1100,112 @@
     connect(code);
   }
 
-  $("create-btn").addEventListener("click", () => {
-    const code = Array.from({ length: 4 },
-      () => CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)]).join("");
-    enterRoom(code);
+  async function createRoom(options) {
+    if (!haveName()) return;
+    const button = $("create-form").querySelector("button[type=submit]");
+    button.disabled = true;
+    button.textContent = "Finding a free code…";
+    try {
+      await ensureClient();
+      const code = await freshCode();
+      pendingRoom = { code, ...options };
+      enterRoom(code);
+    } finally {
+      button.disabled = false;
+      button.textContent = "➕ Create a new room";
+    }
+  }
+
+  function showLobby() {
+    game.hidden = true;
+    lobby.hidden = false;
+    ensureClient();
+    renderLobby();
+  }
+
+  /** The family room, any room you were invited to, then every other live room. */
+  function renderLobby() {
+    if (lobby.hidden) return;
+    const live = new Map();
+    for (const ad of rooms.values()) {
+      if (Date.now() - ad.at > ADVERT_STALE_MS) continue;
+      if (!live.has(ad.code) || live.get(ad.code).at < ad.at) live.set(ad.code, ad);
+    }
+    const hasSeat = (ad) => (!ad.x || !ad.o ? 1 : 0);
+    const pinned = [...new Set([invited, DEFAULT_ROOM].filter(Boolean))];
+    // Rooms with a free seat first, then the most recently active.
+    const others = [...live.values()]
+      .filter((ad) => !pinned.includes(ad.code))
+      .sort((a, b) => hasSeat(b) - hasSeat(a) || b.at - a.at);
+
+    const items = pinned.map((code) => roomItem(code, live.get(code), code === invited && code !== DEFAULT_ROOM));
+    items.push(...others.map((ad) => roomItem(ad.code, ad, false)));
+    if (!others.length) {
+      const empty = document.createElement("li");
+      empty.className = "room-empty";
+      empty.textContent = "No other rooms open right now. Create one below and invite someone.";
+      items.push(empty);
+    }
+    roomList.replaceChildren(...items);
+  }
+
+  function roomItem(code, ad, isInvite) {
+    const li = document.createElement("li");
+    li.className = "room-item" + (isInvite ? " invited" : "");
+
+    const main = document.createElement("div");
+    main.className = "ri-main";
+    const name = document.createElement("div");
+    name.className = "ri-name";
+    name.textContent = code === DEFAULT_ROOM ? `🏠 ${ad?.name || "Family room"}`
+      : isInvite ? `📨 ${ad?.name || "You're invited"}`
+      : `🎲 ${ad?.name || "Room"}`;
+    const codeEl = document.createElement("span");
+    codeEl.className = "ri-code";
+    codeEl.textContent = code;
+    name.append(" ", codeEl);
+
+    const who = document.createElement("div");
+    who.className = "ri-who";
+    let full = false;
+    if (!ad) {
+      who.textContent = isInvite ? "Tap Join to play." : "Nobody here yet.";
+      who.classList.add("open");
+    } else {
+      const players = [ad.x, ad.o].filter(Boolean);
+      full = players.length === 2;
+      let text = full ? `${ad.x} vs ${ad.o} · full`
+        : players.length === 1 ? `${players[0]} is waiting for a player`
+        : "Empty, be the first to sit down";
+      if (ad.watchers) text += ` · ${ad.watchers} watching`;
+      who.textContent = text;
+      who.classList.toggle("open", !full);
+    }
+    main.append(name, who);
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = full ? "Watch" : "Join";
+    if (!full) button.className = "primary";
+    button.setAttribute("aria-label", `${button.textContent} room ${code}`);
+    button.addEventListener("click", () => enterRoom(code));
+
+    li.append(main, button);
+    return li;
+  }
+  setInterval(renderLobby, 10000);
+
+  $("create-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    createRoom({ name: clean($("room-name").value, 24), listed: $("room-listed").checked });
   });
+
+  $("new-room-btn").addEventListener("click", () => createRoom({ name: "", listed: true }));
 
   $("join-form").addEventListener("submit", (event) => {
     event.preventDefault();
     const code = clean(codeInput.value, 4).toUpperCase();
-    if (code.length !== 4) {
-      lobbyError.classList.remove("sr-only");
-      lobbyError.textContent = "Room codes are 4 characters.";
-      return;
-    }
+    if (!/^[A-Z0-9]{4}$/.test(code)) return lobbyMessage("Room codes are 4 letters or numbers.");
     enterRoom(code);
   });
 
@@ -891,29 +1223,28 @@
   $("share-btn").addEventListener("click", async (event) => {
     const button = event.currentTarget;
     const link = `${location.origin}${location.pathname}?room=${roomCode}`;
+    const text = `Come and play tic tac toe with me! Room ${roomCode}`;
     try {
       if (navigator.share && matchMedia("(pointer: coarse)").matches) {
-        await navigator.share({ title: "Tic Tac Toe", text: `Join my game — code ${roomCode}`, url: link });
+        await navigator.share({ title: "Tic Tac Toe", text, url: link });
         return;
       }
-      await navigator.clipboard.writeText(link);
-      button.textContent = "Copied!";
+      await navigator.clipboard.writeText(`${text}: ${link}`);
+      button.textContent = "Link copied!";
     } catch {
       button.textContent = link;
     }
-    setTimeout(() => { button.textContent = "Copy link"; }, 1800);
+    setTimeout(() => { button.textContent = "📨 Invite"; }, 1800);
   });
 
   $("leave-btn").addEventListener("click", () => {
     standUp();
     setTimeout(() => {
-      disconnect();
+      leaveRoomNow();
       const url = new URL(location.href);
       url.searchParams.delete("room");
       history.replaceState(null, "", url);
-      game.hidden = true;
-      lobby.hidden = false;
-      lastChatId = 0;
+      showLobby();
     }, 250);
   });
 
@@ -933,31 +1264,32 @@
     announce();
   });
 
-  window.addEventListener("beforeunload", () => { try { client?.end(true); } catch {} });
+  window.addEventListener("beforeunload", () => { try { leaveRoomNow(); client?.end(true); } catch {} });
 
   // --- start ---------------------------------------------------------------
+  // The bare link opens the room list. A link with ?room= is an invitation:
+  // it goes straight into that room once the player has a name.
   const fromLink = new URLSearchParams(location.search).get("room");
-  const targetRoom = fromLink && /^[A-Za-z0-9]{4}$/.test(fromLink)
-    ? fromLink.toUpperCase()
-    : DEFAULT_ROOM;
+  const invited = fromLink && /^[A-Za-z0-9]{4}$/.test(fromLink) ? fromLink.toUpperCase() : null;
+  if (invited) codeInput.value = invited;
 
-  $("family-btn").textContent = `Join the game (${targetRoom})`;
-  $("family-btn").addEventListener("click", () => enterRoom(targetRoom));
-
-  // Someone who opens the Learn tab should not take a seat in the family game,
-  // so a returning player only joins once the game tab is actually showing.
-  const autoJoin = () => { if (playerName && !roomCode) enterRoom(targetRoom); };
-  document.addEventListener("tabchange", (event) => { if (event.detail === "play") autoJoin(); });
-
-  if (playerName) {
-    if (!document.getElementById("tab-play").hidden) autoJoin();
-  } else {
-    codeInput.value = targetRoom;
-    nameInput.focus();
-    nameInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !client) enterRoom(targetRoom);
-    });
+  // Someone who opens the Learn tab should not take a seat in a game, so
+  // nothing connects until the game tab is actually showing.
+  let autoJoined = false;
+  function onPlayTab() {
+    if (invited && playerName && !roomCode && !autoJoined) {
+      autoJoined = true;
+      return enterRoom(invited);
+    }
+    if (!roomCode) showLobby();
+    if (!playerName) nameInput.focus();
   }
+  document.addEventListener("tabchange", (event) => { if (event.detail === "play") onPlayTab(); });
+  if (!document.getElementById("tab-play").hidden) onPlayTab();
+
+  nameInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && invited && !roomCode) enterRoom(invited);
+  });
 })();
 </script>
 </body>
