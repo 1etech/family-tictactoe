@@ -87,6 +87,27 @@
     return out;
   }
 
+  /**
+   * Imported backups and synced results are outside input, so their stored
+   * question HTML is cut down to the few tags and attributes the questions use.
+   */
+  const SAFE_TAGS = new Set(["b", "br", "div", "span", "ol", "li", "p", "small", "svg", "rect", "circle", "line", "text", "path", "g"]);
+  const SAFE_ATTRS = new Set(["class", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "width", "height", "d",
+    "viewbox", "font-size", "font-weight", "text-anchor", "dominant-baseline", "stroke-width", "role", "aria-label", "aria-hidden"]);
+  function sanitizeHTML(html) {
+    const tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    const walk = (node) => {
+      for (const el of [...node.children]) {
+        if (!SAFE_TAGS.has(el.localName)) { el.remove(); continue; }
+        for (const a of [...el.attributes]) if (!SAFE_ATTRS.has(a.name.toLowerCase())) el.removeAttribute(a.name);
+        walk(el);
+      }
+    };
+    walk(tpl.content);
+    return tpl.innerHTML;
+  }
+
   // --- topics --------------------------------------------------------------
   const topics = [];
   /** Topic fields: id, number, icon, name, subtitle, GENS, SKILLS, GENERIC, TESTS, levelBlurb, lessonHTML, wireLesson. */
@@ -101,7 +122,7 @@
 
   globalThis.LearnCommon = {
     rand, pick, shuffle, cap, fmt, esc, plural, fractionBar,
-    parseNum, make, isCorrect, answerText, givenText, whatWentWrong, buildSet,
+    parseNum, make, isCorrect, answerText, givenText, whatWentWrong, buildSet, sanitizeHTML,
     LEVEL_NAME: { easy: "Easy", medium: "Medium", hard: "Hard" },
     PRAISE: ["Correct!", "Well done!", "Spot on!", "Great work!", "You got it!", "Brilliant!"],
     topics, register, topic, topicOf,

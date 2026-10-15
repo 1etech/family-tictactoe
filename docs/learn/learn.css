@@ -495,3 +495,14 @@ label.check input { width: 18px; height: 18px; accent-color: var(--accent); }
 .ks-topic { border-top: 1px solid var(--line); margin-top: 14px; }
 .ks-topic h3 { margin-top: 12px; }
 .att-table .c-test small { display: block; }
+
+/* parent page: family sync */
+.sync-join { display: grid; gap: 6px; margin-top: 14px; }
+.sync-join label { font-size: 13px; font-weight: 600; color: var(--muted); margin: 0; }
+.sync-row { display: flex; gap: 8px; }
+.sync-row input, .sync-link {
+  font: inherit; font-size: 15px; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; width: 100%; min-width: 0;
+}
+.sync-link { margin-top: 4px; font-size: 13px; }
+.sync-row input:focus-visible, .sync-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

@@ -161,10 +161,46 @@ does not take a seat in a game.
   filter can show one topic or one test, and each child's summary is split by
   topic.
 
-Everything is stored in the browser's `localStorage` on the device the children
-use — nothing goes to a server. **Export backup** / **Import backup** on the
-Parents tab moves results to another device; importing merges and never
-overwrites, and imported question text is cleaned before it is shown.
+Everything is stored in the browser's `localStorage` on the device it happened
+on. To see results from other devices, turn on **family sync**, or move them by
+file with **Export backup** / **Import backup** on the Parents tab (importing
+merges and never overwrites, and imported question text is cleaned before it is
+shown).
+
+### Family sync
+
+A grown-up taps **Turn on family sync** on the Parents tab. That makes a random
+20-character family code and an invite link like
+`…/?family=ABCD…#learn`. Opening the link once on each child's device and each
+grown-up's device joins it; from then on every learner, grown-up and finished
+test goes to the family's online store, and every device fetches what the
+others sent: on opening, every 30 seconds while the page is showing, when it
+comes back online, and a moment after anything changes. Tests already on a
+device when it joins are sent too. Offline work waits in an outbox.
+
+- **One numbering.** The store numbers tests (#1, #2, …) in the order they
+  were taken, so every device shows the same number. A test taken offline gets
+  a local number that can change once, when it is first sent.
+- **Merging.** A learner's points and stats keep the highest value from any
+  device; "seen by" ticks add up; deleting a test or removing a learner or
+  grown-up reaches every device and can't be undone by a device that hadn't
+  heard yet.
+- **Privacy.** The code is the only key: anyone with the link can see and add
+  results, so share it only with family. The store keeps the data under a hash
+  of the code. Synced question text is cleaned like an imported backup.
+- Each device shows its newest 400 tests; the store keeps them all.
+
+The store is a separate Worker, `sync/index.ts`, with one SQLite-backed Durable
+Object per family (Cloudflare's free tier covers this). The page talks to it at
+the address in `SYNC_URL` near the top of `docs/learn/sync.js`; if that is
+empty the sync card doesn't appear. Deploy it with:
+
+```bash
+npx wrangler login
+npm run deploy:sync      # prints https://family-learn-sync.<you>.workers.dev
+```
+
+then put `<that address>/sync` in `SYNC_URL` and push.
 
 | File | What it does |
 | --- | --- |
@@ -172,7 +208,9 @@ overwrites, and imported question text is cleaned before it is shown.
 | `docs/learn/mass.js` | Topic 1: the mass lesson, question generators and tests. |
 | `docs/learn/length.js` | Topic 2: the length lesson, ruler pictures, question generators and tests. |
 | `docs/learn/app.js` | The Learn tab itself: topic picker, practice, tests, rewards and parent pages. |
-| `docs/learn/kids.js` | Learners, grown-ups, saved tests, Claw Points, ranks, badges, backup. |
+| `docs/learn/kids.js` | Learners, grown-ups, saved tests, Claw Points, ranks, badges, backup, sync outbox. |
+| `docs/learn/sync.js` | Family sync: invite links and sending/fetching changes. |
+| `sync/index.ts` | The family store Worker (`wrangler.sync.jsonc`). |
 | `docs/learn/avatars.js` | The ten grown-up animal pictures. |
 | `docs/learn/learn.css` | Styles for the Learn tab. |
 
@@ -190,6 +228,8 @@ npm run preview     # serve docs/ at http://127.0.0.1:8790
 npm run test:sync   # two clients, real broker, full protocol
 npm run opponent ABCD "Cousin"   # a bot that joins room ABCD and plays
 npm run test:learn  # checks thousands of generated questions in every topic, plus points/badges/backup
+npm run test:learn-sync  # several pretend devices syncing through the store under wrangler dev
+npm run dev:sync    # the store at http://127.0.0.1:8791; set localStorage "learn:sync-url" to http://127.0.0.1:8791/sync to use it
 ```
 
 `test:sync` covers retained-state handover, seating, a full round, the rematch,

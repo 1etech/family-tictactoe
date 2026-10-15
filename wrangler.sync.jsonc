@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Family sync for the Learn tab (sync/index.ts). Free tier: a Worker plus
+  // SQLite-backed Durable Objects, one per family.
+  "name": "family-learn-sync",
+  "main": "sync/index.ts",
+  "compatibility_date": "2025-10-11",
+
+  "durable_objects": {
+    "bindings": [{ "name": "FAMILY", "class_name": "FamilyStore" }]
+  },
+
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["FamilyStore"] }],
+
+  "observability": { "enabled": true }
+}

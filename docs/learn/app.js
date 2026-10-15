@@ -5,12 +5,13 @@
   "use strict";
 
   const C = globalThis.LearnCommon;
-  const { pick, esc, plural, parseNum, make, isCorrect, answerText, givenText, whatWentWrong, buildSet, LEVEL_NAME, PRAISE } = C;
+  const { pick, esc, plural, parseNum, make, isCorrect, answerText, givenText, whatWentWrong, buildSet, sanitizeHTML, LEVEL_NAME, PRAISE } = C;
 
   // --- page wiring ---------------------------------------------------------
   const root = document.getElementById("learn-root");
   if (!root) return;
   const Kids = window.LearnKids;
+  const Sync = window.LearnSync;
 
   const VIEWS = [
     ["learn", "📖", "Learn"], ["practice", "✏️", "Practice"], ["test", "📝", "Test"],
@@ -79,7 +80,7 @@
     topicBar.hidden = shown === "parents" || shown === "rewards";
     root.querySelectorAll(".subtabs [data-view]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.view === next)));
     if (shown === "rewards") drawRewards();
-    if (shown === "parents") drawParents();
+    if (shown === "parents") { drawParents(); Sync?.syncNow(); }
     if (scroll) root.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -230,27 +231,6 @@
       button.textContent = original;
     }, 4000);
     return false;
-  }
-
-  /**
-   * Imported backups are outside input, so their stored question HTML is cut
-   * down to the few tags and attributes the questions actually use.
-   */
-  const SAFE_TAGS = new Set(["b", "br", "div", "span", "ol", "li", "p", "small", "svg", "rect", "circle", "line", "text", "path", "g"]);
-  const SAFE_ATTRS = new Set(["class", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "width", "height", "d",
-    "viewbox", "font-size", "font-weight", "text-anchor", "dominant-baseline", "stroke-width", "role", "aria-label", "aria-hidden"]);
-  function sanitizeHTML(html) {
-    const tpl = document.createElement("template");
-    tpl.innerHTML = html;
-    const walk = (node) => {
-      for (const el of [...node.children]) {
-        if (!SAFE_TAGS.has(el.localName)) { el.remove(); continue; }
-        for (const a of [...el.attributes]) if (!SAFE_ATTRS.has(a.name.toLowerCase())) el.removeAttribute(a.name);
-        walk(el);
-      }
-    };
-    walk(tpl.content);
-    return tpl.innerHTML;
   }
 
   // --- who is learning -----------------------------------------------------
@@ -815,7 +795,7 @@
           <button type="button" class="small" data-par="done">Done</button>
         </div>
         <h2>👪 Parent review</h2>
-        <p class="lead">Every finished test is saved with a test number, the date and time, and the child's name, plus each answer, what went wrong and the right method. Any grown-up can review any child. Results are kept in this browser, on this device.</p>
+        <p class="lead">Every finished test is saved with a test number, the date and time, and the child's name, plus each answer, what went wrong and the right method. Any grown-up can review any child. ${Sync?.status().on ? "Family sync is on, so tests taken on any of the family's devices show up here." : "Results are kept in this browser, on this device, unless family sync is on."}</p>
         ${kids.length ? "" : "<p>No learners yet. Children add their name when they open Practice, Test or Rewards.</p>"}
       </div>
       <div class="card">
@@ -837,9 +817,10 @@
         </div>
       </div>
       <div id="par-results"></div>
+      ${Sync?.available() ? '<div class="card" id="par-sync"></div>' : ""}
       <div class="card">
         <h2>Backup and other devices</h2>
-        <p>To look at results on a different phone or computer, export a backup here and import it there. Importing adds to what is already saved — nothing is overwritten, and test numbers already used here stay the same.</p>
+        <p>${Sync?.available() ? "Without family sync, you can still move results by file: export" : "To look at results on a different phone or computer, export"} a backup here and import it there. Importing adds to what is already saved — nothing is overwritten, and test numbers already used here stay the same.</p>
         <div class="qactions">
           <button type="button" data-par="export">⬇️ Export backup</button>
           <button type="button" data-par="import">⬆️ Import backup</button>
@@ -855,7 +836,88 @@
       </div>`;
     PV.status = "";
     drawParentResults();
+    drawSync();
   }
+
+  // --- family sync card ----------------------------------------------------
+  const SY = { message: "" };
+  const ago = (at) => {
+    const s = Math.round((Date.now() - at) / 1000);
+    return s < 60 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : when(at);
+  };
+
+  /** The family sync card; redrawn alone when sync's status changes. */
+  function drawSync() {
+    const box = panels.parents.querySelector("#par-sync");
+    if (!box) return;
+    const st = Sync.status();
+    const msg = SY.message ? `<p class="note" role="status">${esc(SY.message)}</p>` : "";
+    SY.message = "";
+    if (!st.on) {
+      box.innerHTML = `
+        <h2>🔄 Family sync</h2>
+        <p>See every child's tests on every grown-up's phone or computer, wherever they are. Turn it on here, then open the invite link once on each child's device and each grown-up's device. Tests already on this device are included.</p>
+        <div class="qactions"><button type="button" class="primary" data-sync="start">Turn on family sync</button></div>
+        <form class="sync-join" autocomplete="off">
+          <label for="sync-code">Already have a family invite link or code? Paste it here.</label>
+          <div class="sync-row"><input id="sync-code" type="text" placeholder="Invite link or family code" spellcheck="false">
+            <button type="submit">Join</button></div>
+        </form>
+        ${msg}`;
+      return;
+    }
+    const line = st.busy ? "Syncing…"
+      : st.error ? `⚠️ ${esc(st.error)}`
+      : st.last ? `✅ Up to date · last synced ${ago(st.last)}` : "Waiting to sync…";
+    box.innerHTML = `
+      <h2>🔄 Family sync is on</h2>
+      <p class="note" role="status">${line}${st.pending && !st.busy ? ` · ${plural(st.pending, "change")} waiting to send` : ""}</p>
+      <p>Open this invite link once on each child's device and each grown-up's device. Anyone with the link can see and add results, so only send it to family.</p>
+      <input class="sync-link" type="text" readonly value="${esc(Sync.inviteLink())}" aria-label="Family invite link">
+      <div class="qactions">
+        <button type="button" class="primary" data-sync="share">📨 Share invite link</button>
+        <button type="button" data-sync="now">🔄 Sync now</button>
+        <button type="button" class="danger" data-sync="leave">Turn off on this device</button>
+      </div>
+      ${msg}`;
+  }
+
+  window.addEventListener("learnsync:status", drawSync);
+
+  panels.parents.addEventListener("click", async (event) => {
+    const b = event.target.closest("[data-sync]");
+    if (!b) return;
+    const what = b.dataset.sync;
+    if (what === "start") Sync.start();
+    if (what === "now") Sync.syncNow();
+    if (what === "leave" && confirmed(b, "Tap again: this device stops syncing")) {
+      Sync.leave();
+      SY.message = "Family sync is off on this device. Results already here stay here.";
+    }
+    if (what === "share") {
+      const link = Sync.inviteLink();
+      const text = "Open this to join our family's maths results";
+      try {
+        if (navigator.share && matchMedia("(pointer: coarse)").matches) await navigator.share({ title: "Year 4 Maths", text, url: link });
+        else { await navigator.clipboard.writeText(link); SY.message = "Invite link copied. Paste it into a message to send it."; }
+      } catch {
+        panels.parents.querySelector(".sync-link")?.select();
+      }
+    }
+    // Turning sync on or off changes the page's wording, not just this card.
+    if (what === "start" || what === "leave") drawParents(); else drawSync();
+  });
+
+  panels.parents.addEventListener("submit", (event) => {
+    if (!event.target.classList.contains("sync-join")) return;
+    event.preventDefault();
+    const raw = event.target.querySelector("#sync-code").value.trim();
+    let code = raw;
+    try { code = new URL(raw).searchParams.get("family") || raw; } catch {}
+    if (Sync.join(code)) return drawParents();
+    SY.message = "That doesn't look like a family invite link or code.";
+    drawSync();
+  });
 
   /** Child summaries and the test table; redrawn alone so typing in a filter keeps focus. */
   function drawParentResults() {
