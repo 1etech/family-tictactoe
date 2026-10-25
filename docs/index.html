@@ -8,6 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✳️</text></svg>" />
 <!-- Learn files carry ?v=N: bump it when they change so browsers never mix old and new copies. -->
 <link rel="stylesheet" href="learn/learn.css?v=3" />
+<link rel="stylesheet" href="uno/uno.css?v=1" />
 <style>
   :root {
     --bg: #f6f1e8;
@@ -267,6 +268,7 @@
   }
   .tabs button { border: none; background: transparent; padding: 9px 16px; font-size: 15px; }
   .tabs button[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); }
+  @media (max-width: 400px) { .tabs button { padding: 8px 10px; font-size: 14px; } }
   .tabpanel { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px; }
   .card, .learn-wrap { scroll-margin-top: 72px; }
 
@@ -281,6 +283,7 @@
 
 <nav class="tabs" role="tablist" aria-label="Sections">
   <button type="button" role="tab" data-tab="play" aria-controls="tab-play" aria-selected="true">🎮 Tic Tac Toe</button>
+  <button type="button" role="tab" data-tab="uno" aria-controls="tab-uno" aria-selected="false">🃏 UNO</button>
   <button type="button" role="tab" data-tab="learn" aria-controls="tab-learn" aria-selected="false">📚 Learn</button>
 </nav>
 
@@ -398,6 +401,10 @@
 </section>
 </div>
 
+<div id="tab-uno" class="tabpanel" role="tabpanel" hidden>
+  <div id="uno-root"></div>
+</div>
+
 <div id="tab-learn" class="tabpanel" role="tabpanel" hidden>
   <div id="learn-root" class="learn-wrap"></div>
 </div>
@@ -406,9 +413,11 @@
 (() => {
   "use strict";
 
-  // Two tabs on one page. "#learn" in the address opens the learning tab, so
-  // that link can be shared on its own; the game keeps using ?room=.
-  const titles = { play: "Family Tic Tac Toe", learn: "Year 4 Maths · Measurement" };
+  // Three tabs on one page. "#learn" or "#uno" in the address opens that tab,
+  // so the link can be shared on its own; tic tac toe keeps using ?room= and
+  // UNO tables use ?uno=.
+  const titles = { play: "Family Tic Tac Toe", uno: "Family UNO", learn: "Year 4 Maths · Measurement" };
+  const fromHash = () => (location.hash === "#learn" ? "learn" : location.hash === "#uno" ? "uno" : "play");
   const buttons = document.querySelectorAll(".tabs [data-tab]");
 
   function show(name, updateUrl) {
@@ -420,7 +429,7 @@
     document.title = titles[name];
     if (updateUrl) {
       const url = new URL(location.href);
-      url.hash = name === "learn" ? "learn" : "";
+      url.hash = name === "play" ? "" : name;
       history.replaceState(null, "", url);
     }
     document.dispatchEvent(new CustomEvent("tabchange", { detail: name }));
@@ -428,9 +437,9 @@
 
   buttons.forEach((button) => button.addEventListener("click", () => show(button.dataset.tab, true)));
   window.addEventListener("hashchange", () => {
-    if (location.hash === "#learn" || location.hash === "") show(location.hash ? "learn" : "play", false);
+    if (["#learn", "#uno", ""].includes(location.hash)) show(fromHash(), false);
   });
-  show(location.hash === "#learn" ? "learn" : "play", false);
+  show(new URLSearchParams(location.search).has("uno") && !location.hash ? "uno" : fromHash(), false);
 })();
 </script>
 <script src="learn/kids.js?v=3"></script>
@@ -442,6 +451,8 @@
 <script src="learn/app.js?v=3"></script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
+<script src="uno/rules.js?v=1"></script>
+<script src="uno/uno.js?v=1"></script>
 <script>
 (() => {
   "use strict";
