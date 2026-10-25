@@ -123,6 +123,12 @@ but each table seats **2 to 10 players**. Link straight to it with
    or more are seated, anyone at the table taps **🃏 Deal the cards**. People
    who arrive mid-round get a seat and are dealt in next round.
 
+**📖 How to play** (on the table list) and **📖 Rules** (at a table) show the
+rules as one picture, `docs/uno/rules.png`, with a button to save it. Share
+`https://1etech.github.io/family-tictactoe/uno/rules.png` in the family chat
+too. The picture is drawn from `tools/uno-rules.html`; after editing that, run
+`node tools/uno-rules-image.mjs` (needs Playwright) and bump the UNO `?v=`.
+
 The rules are the standard ones:
 
 - 108 cards, 7 each. Match the top card's colour, number or symbol, or play a
@@ -154,6 +160,7 @@ and the other browser redoes its change on top, so nothing is lost.
 | `docs/uno/rules.js` | The deck, every rule, scoring, joining and leaving. No page or network code. |
 | `docs/uno/uno.js` | The tab: table list, syncing through the broker, the table and your hand. |
 | `docs/uno/uno.css` | Styles, including the cards. |
+| `docs/uno/rules.png` | The rules picture, made from `tools/uno-rules.html` by `tools/uno-rules-image.mjs`. |
 
 When an UNO file changes, bump its `?v=` number in `index.html`.
 

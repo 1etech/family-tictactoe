@@ -50,6 +50,7 @@
   // --- page ---------------------------------------------------------------------
   root.innerHTML = `
     <h1>Family UNO<small>2 to 10 players. One link, any device.</small></h1>
+    <button type="button" class="uno-rules-btn" id="uno-howto" data-rules>📖 How to play</button>
 
     <section id="uno-lobby" class="panel">
       <div class="stack">
@@ -107,6 +108,7 @@
       <div class="uno-players-head">
         <h2>Players <span id="uno-count"></span></h2>
         <span id="uno-dir" class="uno-dir"></span>
+        <button type="button" class="uno-rules-btn small" data-rules>📖 Rules</button>
       </div>
       <ul id="uno-players" class="uno-players"></ul>
 
@@ -152,7 +154,16 @@
         </form>
       </details>
       <div class="conn" id="uno-conn"><span class="dot"></span><span>connecting…</span></div>
-    </section>`;
+    </section>
+
+    <dialog id="uno-rules" class="uno-rules" aria-label="How to play UNO">
+      <div class="uno-rules-bar">
+        <a href="uno/rules.png" download="family-uno-rules.png">⬇ Save picture</a>
+        <button type="button" id="uno-rules-close" autofocus>✕ Close</button>
+      </div>
+      <img src="uno/rules.png" width="1080" height="3708" loading="lazy"
+           alt="How to play UNO. 2 to 10 players, 7 cards each, first to 500 points wins. On your turn play one card matching the top card's colour, number or symbol, or a wild; otherwise draw, and play the drawn card if it fits or keep it. Skip: next player misses a turn. Reverse: direction changes, a skip with 2 players. Draw Two: next player draws 2 and misses a turn. Wild: choose the colour. Wild Draw Four: choose the colour, next player draws 4 and misses a turn, only when you have no cards of the colour in play. No stacking. Down to two cards, tap UNO; if you forget, anyone can catch you before the next player moves and you draw 2. Going out scores the cards in everyone else's hands: numbers face value, action cards 20, wilds 50." />
+    </dialog>`;
 
   const $ = (id) => document.getElementById(id);
   const onUnoTab = () => !$("tab-uno").hidden;
@@ -375,6 +386,7 @@
     $("uno-status").textContent = "Connecting…";
     lobbyEl.hidden = true;
     roomEl.hidden = false;
+    $("uno-howto").hidden = true;
     lastAdvert = "";
     setConn("uno-conn", "", "connecting…");
     const key = await topicFor(code);
@@ -869,6 +881,7 @@
   function showLobby() {
     roomEl.hidden = true;
     lobbyEl.hidden = false;
+    $("uno-howto").hidden = false;
     ensureClient();
     renderLobby();
   }
@@ -892,6 +905,12 @@
     playCard(index, card, color);
   });
   $("uno-pick-cancel").addEventListener("click", () => { picking = null; render(); });
+
+  const rulesDialog = $("uno-rules");
+  root.querySelectorAll("[data-rules]").forEach((b) => b.addEventListener("click", () => rulesDialog.showModal()));
+  $("uno-rules-close").addEventListener("click", () => rulesDialog.close());
+  // A tap on the dimmed backdrop closes it too.
+  rulesDialog.addEventListener("click", (event) => { if (event.target === rulesDialog) rulesDialog.close(); });
 
   $("uno-share").addEventListener("click", async (event) => {
     const button = event.currentTarget;
