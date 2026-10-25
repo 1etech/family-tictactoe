@@ -1,0 +1,194 @@
+/* The UNO tab. Page colours come from the tokens in index.html; the card
+   colours stay the same in light and dark, like real cards. */
+:root {
+  --uno-R: #d72600;
+  --uno-Y: #e8b800;
+  --uno-G: #2f8a10;
+  --uno-B: #0956bf;
+  --uno-W: #1d1a17;
+}
+
+#uno-root { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.uno-room { width: 100%; max-width: 560px; display: flex; flex-direction: column; gap: 14px; }
+.code-input { text-transform: uppercase; letter-spacing: .3em; font-weight: 700; text-align: center; }
+
+/* --- rules picture -------------------------------------------------------- */
+.uno-rules-btn { padding: 8px 14px; font-size: 14px; margin-top: -8px; }
+.uno-rules-btn.small { padding: 5px 10px; font-size: 13px; margin: 0 0 0 auto; }
+.uno-rules {
+  width: min(560px, calc(100vw - 16px)); max-height: calc(100dvh - 16px); padding: 0;
+  border: 1px solid var(--line); border-radius: var(--radius); background: #f6f1e8; color: var(--ink);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .4);
+}
+.uno-rules::backdrop { background: rgba(15, 12, 9, .6); }
+.uno-rules img { display: block; width: 100%; height: auto; }
+.uno-rules-bar {
+  position: sticky; top: 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 8px 10px; background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.uno-rules-bar a { color: var(--accent); font-weight: 600; font-size: 14px; }
+.uno-rules-bar button { padding: 7px 12px; font-size: 14px; }
+
+/* --- players ------------------------------------------------------------- */
+.uno-players-head { display: flex; align-items: center; gap: 10px; }
+.uno-players-head h2 { margin: 0; font-size: 17px; }
+.uno-players-head h2 span { font-size: 13px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+.uno-dir { font-size: 13px; color: var(--muted); font-weight: 600; }
+.uno-players {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px;
+}
+.uno-player {
+  position: relative; min-width: 0; padding: 8px 10px;
+  background: var(--panel); border: 2px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+}
+.uno-player.me { background: var(--bg); }
+.uno-player.turn { border-color: var(--accent); }
+.uno-player.turn::before {
+  content: "▶"; position: absolute; left: -2px; top: -10px; font-size: 11px; color: var(--accent);
+}
+.uno-player.won { border-color: var(--good); }
+.up-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.up-info { display: flex; justify-content: space-between; gap: 6px; font-size: 12px; color: var(--muted); }
+.up-cards { font-weight: 700; color: var(--ink); }
+.up-wait { font-style: italic; }
+.up-badge {
+  position: absolute; right: -4px; top: -10px; padding: 1px 6px; border-radius: 99px;
+  background: var(--uno-R); color: #fff; font-size: 11px; font-weight: 800; transform: rotate(6deg);
+}
+.up-away { font-size: 11px; color: var(--muted); font-style: italic; }
+
+/* --- table --------------------------------------------------------------- */
+.uno-table {
+  display: flex; justify-content: center; align-items: flex-end; gap: clamp(20px, 8vw, 48px);
+  padding: 18px 12px 12px; border-radius: var(--radius); box-shadow: var(--shadow);
+  background: radial-gradient(ellipse at center, #1f7a4d 0%, #135a37 100%);
+  border: 1px solid var(--line);
+}
+.uno-pile {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: none; border: none; padding: 0; color: #fff; box-shadow: none;
+}
+button.uno-pile:disabled { opacity: 1; cursor: default; }
+button.uno-pile.ready .uno-card { outline: 3px solid #fde68a; outline-offset: 3px; animation: uno-bob 1.4s ease-in-out infinite; }
+.uno-pile-label { font-size: 13px; font-weight: 700; color: #f2fbf5; min-height: 20px; }
+.uno-pile-label[class*="tint-"] { padding: 0 10px; border-radius: 99px; background: rgba(0, 0, 0, .25); }
+.tint-R { color: #ffb4a3 !important; }
+.tint-Y { color: #ffe680 !important; }
+.tint-G { color: #a9ef8c !important; }
+.tint-B { color: #a8c8ff !important; }
+
+/* --- cards --------------------------------------------------------------- */
+.uno-card {
+  --card: var(--uno-W);
+  position: relative; flex: 0 0 auto;
+  width: var(--cw, 56px); aspect-ratio: 2 / 3;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--card); color: #fff;
+  border: 3px solid #fff; border-radius: 9px; padding: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25), 0 3px 8px rgba(0, 0, 0, .18);
+  font-weight: 900; line-height: 1; user-select: none;
+}
+.uno-card.c-R { --card: var(--uno-R); }
+.uno-card.c-Y { --card: var(--uno-Y); }
+.uno-card.c-G { --card: var(--uno-G); }
+.uno-card.c-B { --card: var(--uno-B); }
+.uno-oval {
+  width: 78%; height: 62%; border-radius: 50%; background: #fff; transform: rotate(-28deg);
+  display: flex; align-items: center; justify-content: center;
+}
+.uno-oval b {
+  transform: rotate(28deg); color: var(--card); font-size: calc(var(--cw, 56px) * .42);
+  -webkit-text-stroke: 1px rgba(0, 0, 0, .35);
+}
+.uno-card.c-W .uno-oval {
+  background: conic-gradient(var(--uno-R) 0 25%, var(--uno-B) 0 50%, var(--uno-Y) 0 75%, var(--uno-G) 0);
+}
+.uno-card.c-W .uno-oval b { color: #fff; -webkit-text-stroke: 1px #000; }
+.uno-corner {
+  position: absolute; top: 3px; left: 5px; font-style: normal; font-size: calc(var(--cw, 56px) * .2);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .4);
+}
+.uno-corner.end { top: auto; left: auto; bottom: 3px; right: 5px; transform: rotate(180deg); }
+.uno-card.back { --card: var(--uno-W); }
+.uno-card.back .uno-oval { background: var(--uno-R); }
+.uno-card.back .uno-oval b { color: #fde047; font-size: calc(var(--cw, 56px) * .3); -webkit-text-stroke: 1px #000; font-style: italic; }
+.uno-card.big { --cw: 84px; }
+.uno-pile .uno-card.back { --cw: 84px; }
+.uno-card[class*="ring-"] { box-shadow: 0 0 0 4px var(--ring), 0 6px 16px rgba(0, 0, 0, .35); }
+.ring-R { --ring: var(--uno-R); }
+.ring-Y { --ring: var(--uno-Y); }
+.ring-G { --ring: var(--uno-G); }
+.ring-B { --ring: var(--uno-B); }
+
+/* --- your hand ----------------------------------------------------------- */
+.uno-hand {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 6px;
+  padding: 14px 10px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.uno-hand .uno-card { --cw: 58px; cursor: pointer; transition: transform .12s ease, opacity .12s ease; }
+.uno-hand .uno-card.playable { transform: translateY(-6px); }
+.uno-hand .uno-card.playable:hover { transform: translateY(-10px); filter: none; }
+.uno-hand .uno-card.dim { opacity: .5; }
+.uno-hand .uno-card.picked { outline: 3px solid var(--accent); outline-offset: 2px; }
+.uno-hand .uno-card.fresh { animation: uno-in .5s ease-out; }
+.uno-hand .uno-card:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 420px) {
+  .uno-hand .uno-card { --cw: 50px; }
+}
+
+.uno-status { text-align: center; font-weight: 700; min-height: 24px; }
+.uno-status.mine { color: var(--accent); }
+.uno-notice { text-align: center; font-size: 14px; color: var(--bad); min-height: 20px; margin-top: -8px; }
+
+.uno-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.uno-actions:empty { display: none; }
+.uno-shout { background: var(--uno-R); color: #fff; border-color: transparent; font-size: 18px; animation: uno-bob 1.2s ease-in-out infinite; }
+.uno-catch { background: var(--uno-Y); color: #1d1a17; border-color: transparent; }
+
+.uno-picker {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 12px;
+  background: var(--panel); border: 1px dashed var(--accent); border-radius: var(--radius);
+}
+.uno-picker > span { font-weight: 700; }
+.uno-picker-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; }
+.uno-picker-row button { color: #fff; border-color: transparent; padding: 14px 4px; }
+.uno-picker-row .pick-R { background: var(--uno-R); }
+.uno-picker-row .pick-Y { background: var(--uno-Y); color: #1d1a17; }
+.uno-picker-row .pick-G { background: var(--uno-G); }
+.uno-picker-row .pick-B { background: var(--uno-B); }
+.uno-link { background: none; border: none; color: var(--muted); padding: 4px 8px; font-size: 14px; text-decoration: underline; }
+
+/* --- before and after a round -------------------------------------------- */
+.uno-panel {
+  display: flex; flex-direction: column; gap: 12px; padding: 16px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.uno-scores { width: 100%; border-collapse: collapse; font-size: 15px; }
+.uno-scores caption { text-align: left; font-weight: 700; padding-bottom: 6px; }
+.uno-scores td { padding: 6px 4px; border-top: 1px solid var(--line); }
+.uno-scores td.num { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.uno-scores tr.won td { color: var(--good); font-weight: 700; }
+.uno-reveal { display: flex; flex-direction: column; gap: 8px; }
+.uno-reveal-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.uno-reveal-name { flex: 0 0 80px; font-size: 13px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.uno-reveal-cards { display: flex; flex-wrap: wrap; gap: 3px; }
+.uno-reveal-cards .uno-card { --cw: 30px; border-width: 2px; border-radius: 5px; }
+.uno-reveal-cards .uno-corner { display: none; }
+
+.uno-log {
+  list-style: none; margin: 0; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;
+  font-size: 13px; color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.uno-log:empty { display: none; }
+.uno-log li:first-child { color: var(--ink); font-weight: 600; }
+.uno-watchers { text-align: center; font-size: 13px; color: var(--muted); }
+.uno-watchers:empty { display: none; }
+.uno-messages { max-height: 190px; overflow-y: auto; padding: 0 14px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+
+@keyframes uno-bob { 50% { transform: translateY(-3px); } }
+@keyframes uno-in { from { transform: translateY(-14px) scale(1.08); box-shadow: 0 0 0 4px #fde68a; } }
+@media (prefers-reduced-motion: reduce) {
+  .uno-shout, button.uno-pile.ready .uno-card, .uno-hand .uno-card.fresh { animation: none; }
+}

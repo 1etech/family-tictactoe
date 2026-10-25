@@ -9,6 +9,7 @@
     "test:sync": "node test/serverless-sync.mjs",
     "test:learn": "node test/learn-questions.mjs && node test/learn-kids.mjs",
     "test:learn-sync": "node test/learn-sync.mjs",
+    "test:uno": "node test/uno-rules.mjs",
     "dev:sync": "wrangler dev -c wrangler.sync.jsonc --port 8791",
     "deploy:sync": "wrangler deploy -c wrangler.sync.jsonc",
     "opponent": "node tools/opponent.mjs",

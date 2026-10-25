@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<!-- Source for docs/uno/rules.png, the picture behind the UNO tab's Rules
+     button. Edit this, then run: node tools/uno-rules-image.mjs -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>UNO rules</title>
+<link rel="stylesheet" href="../docs/uno/uno.css" />
+<style>
+  :root { --ink: #2b2520; --muted: #6f6359; --line: #e6dccd; --paper: #fffdf9; --accent: #7c3aed; }
+  * { box-sizing: border-box; }
+  body { margin: 0; width: 540px; background: #f6f1e8; font: 15px/1.45 Inter, system-ui, sans-serif; color: var(--ink); }
+  .sheet { padding: 18px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+
+  header {
+    border-radius: 18px; padding: 18px 18px 16px; color: #fff; text-align: center;
+    background: radial-gradient(ellipse at top, #22865a 0%, #135a37 100%);
+    position: relative; overflow: hidden;
+  }
+  header h1 { margin: 0; font-size: 30px; letter-spacing: -.02em; line-height: 1.1; }
+  header h1 span {
+    display: inline-block; background: var(--uno-R); color: #fde047; padding: 0 12px 2px; border-radius: 50%;
+    font-style: italic; transform: rotate(-8deg); border: 3px solid #fff; margin-right: 4px;
+    -webkit-text-stroke: 1px #000;
+  }
+  header p { margin: 8px 0 0; font-size: 15px; color: #e3f6ea; font-weight: 600; }
+  .fan { display: flex; justify-content: center; margin-top: 12px; height: 70px; }
+  .fan .uno-card { --cw: 44px; margin: 0 -6px; }
+  .fan .uno-card:nth-child(1) { transform: rotate(-18deg) translateY(10px); }
+  .fan .uno-card:nth-child(2) { transform: rotate(-9deg) translateY(3px); }
+  .fan .uno-card:nth-child(4) { transform: rotate(9deg) translateY(3px); }
+  .fan .uno-card:nth-child(5) { transform: rotate(18deg) translateY(10px); }
+
+  section { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+  h2 { margin: 0 0 8px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+  h2 .n {
+    flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent); color: #fff; font-size: 14px;
+  }
+  p { margin: 0; }
+  p + p { margin-top: 6px; }
+  b.k { color: var(--accent); }
+
+  .match { display: flex; align-items: center; gap: 10px; margin: 10px 0 8px; }
+  .match .uno-card { --cw: 40px; border-width: 2px; border-radius: 6px; }
+  .match .on { display: flex; flex-direction: column; align-items: center; font-size: 11px; color: var(--muted); font-weight: 700; gap: 3px; }
+  .match .arrow { font-size: 20px; color: var(--muted); }
+  .opt { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 16px; font-weight: 800; }
+  .opt.yes { color: #15803d; }
+  .opt.no { color: #b91c1c; }
+  .opt.no .uno-card { opacity: .55; }
+
+  .actions { display: grid; grid-template-columns: 1fr; gap: 9px; }
+  .act { display: flex; align-items: center; gap: 12px; }
+  .act .uno-card { --cw: 42px; border-width: 2px; border-radius: 6px; flex: 0 0 auto; }
+  .act strong { display: block; font-size: 15px; }
+  .act span.t { font-size: 14px; color: var(--muted); line-height: 1.35; display: block; }
+  .note { margin-top: 10px; font-size: 13px; color: var(--muted); background: #f6f1e8; border-radius: 10px; padding: 7px 10px; }
+
+  .uno-box { display: flex; gap: 12px; align-items: center; }
+  .btn {
+    display: inline-block; border-radius: 10px; padding: 4px 10px; font-weight: 800; font-size: 15px; white-space: nowrap;
+  }
+  .btn.shout { background: var(--uno-R); color: #fff; }
+  .btn.catch { background: var(--uno-Y); color: #1d1a17; }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 6px; font-size: 15px; }
+  td { padding: 6px 4px; border-top: 1px solid var(--line); vertical-align: middle; }
+  td.pts { text-align: right; font-weight: 800; white-space: nowrap; }
+  td .uno-card { --cw: 24px; border-width: 2px; border-radius: 4px; margin-right: 2px; vertical-align: middle; }
+  td .uno-card .uno-corner { display: none; }
+  .win { text-align: center; font-weight: 800; font-size: 16px; margin-top: 6px; }
+
+  ul { margin: 0; padding-left: 18px; }
+  li + li { margin-top: 4px; }
+  footer { text-align: center; font-size: 12px; color: var(--muted); padding-top: 2px; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <header>
+    <h1><span>UNO</span> How to play</h1>
+    <p>2 to 10 players · 7 cards each · first to 500 points wins</p>
+    <div class="fan" data-cards="R7 Y3 W4 GS BR"></div>
+  </header>
+
+  <section>
+    <h2><span class="n">1</span>Goal</h2>
+    <p>Be the first to get rid of <b>all your cards</b>.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">2</span>On your turn</h2>
+    <p>Play <b>one card</b> that matches the top card by <b class="k">colour</b>, <b class="k">number</b> or <b class="k">symbol</b>, or play a wild.</p>
+    <div class="match">
+      <div class="on"><span data-card="R7"></span>on top</div>
+      <span class="arrow">→</span>
+      <div class="opt yes"><span data-card="R2"></span>✓</div>
+      <div class="opt yes"><span data-card="B7"></span>✓</div>
+      <div class="opt yes"><span data-card="WW"></span>✓</div>
+      <div class="opt no"><span data-card="G4"></span>✗</div>
+    </div>
+    <p>Can't play, or don't want to? <b>Tap the draw pile.</b> If the card you draw fits, play it straight away or tap <b>Keep it</b>. If it doesn't fit, your turn ends.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">3</span>Action cards</h2>
+    <div class="actions">
+      <div class="act"><span data-card="BS"></span><div><strong>Skip</strong><span class="t">The next player misses their turn.</span></div></div>
+      <div class="act"><span data-card="GR"></span><div><strong>Reverse</strong><span class="t">Play changes direction. With 2 players it works like a Skip.</span></div></div>
+      <div class="act"><span data-card="YD"></span><div><strong>Draw Two</strong><span class="t">The next player draws 2 cards and misses their turn.</span></div></div>
+      <div class="act"><span data-card="WW"></span><div><strong>Wild</strong><span class="t">Play it on anything and choose the next colour.</span></div></div>
+      <div class="act"><span data-card="W4"></span><div><strong>Wild Draw Four</strong><span class="t">Choose the colour. The next player draws 4 and misses their turn. <b>Only allowed when you have no cards of the colour in play.</b></span></div></div>
+    </div>
+    <p class="note">No stacking: a Draw Two can't be passed on with another Draw Two.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">4</span>Shout UNO!</h2>
+    <div class="uno-box">
+      <div>
+        <p>Down to <b>two cards</b>? Tap <span class="btn shout">📣 UNO!</span> before you play (or straight after).</p>
+        <p>Forgot? Anyone can tap <span class="btn catch">🫵 Catch</span> before the next player moves, and you <b>draw 2</b>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="n">5</span>Scoring</h2>
+    <p>Whoever goes out first scores the cards left in <b>everyone else's</b> hands:</p>
+    <table>
+      <tr><td><span data-card="B0"></span><span data-card="R5"></span><span data-card="G9"></span> Number cards</td><td class="pts">face value</td></tr>
+      <tr><td><span data-card="YS"></span><span data-card="BR"></span><span data-card="RD"></span> Skip, Reverse, Draw Two</td><td class="pts">20 each</td></tr>
+      <tr><td><span data-card="WW"></span><span data-card="W4"></span> Wild, Wild Draw Four</td><td class="pts">50 each</td></tr>
+    </table>
+    <p class="win">🏆 First to 500 points wins the game.</p>
+  </section>
+
+  <section>
+    <h2><span class="n">6</span>Good to know</h2>
+    <ul>
+      <li>The first card is never a wild. If it's a Skip, Reverse or Draw Two, it counts against the first player.</li>
+      <li>When the draw pile runs out, the played cards are shuffled back in.</li>
+      <li>Someone gone quiet? After about 20 seconds you can <b>Skip</b> them: they draw 1 and play moves on.</li>
+      <li>Arrived mid-round? You'll be dealt in next round.</li>
+    </ul>
+  </section>
+
+  <footer>Family UNO · 1etech.github.io/family-tictactoe/#uno</footer>
+</div>
+<script>
+  // Same card faces as the game (cardEl in docs/uno/uno.js).
+  const SYMBOL = { S: "⊘", R: "⇄", D: "+2" };
+  function card(code) {
+    const node = document.createElement("span");
+    node.className = `uno-card c-${code[0]}`;
+    const sym = code === "WW" ? "" : code === "W4" ? "+4" : SYMBOL[code[1]] ?? code[1];
+    node.innerHTML = `<i class="uno-corner"></i><span class="uno-oval"><b></b></span><i class="uno-corner end"></i>`;
+    node.querySelectorAll("i").forEach((i) => { i.textContent = sym || "W"; });
+    node.querySelector("b").textContent = sym;
+    return node;
+  }
+  document.querySelectorAll("[data-card]").forEach((slot) => slot.replaceWith(card(slot.dataset.card)));
+  document.querySelectorAll("[data-cards]").forEach((fan) => fan.append(...fan.dataset.cards.split(" ").map(card)));
+</script>
+</body>
+</html>

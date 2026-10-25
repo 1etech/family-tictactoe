@@ -2,8 +2,8 @@
 
 **Play and learn: https://1etech.github.io/family-tictactoe/**
 
-One link for everything: the page has a **🎮 Tic Tac Toe** tab and a **📚 Learn**
-tab. Send it to anyone. It is permanent, free, and nothing needs to be running
+One link for everything: the page has a **🎮 Tic Tac Toe** tab, a **🃏 UNO** tab
+and a **📚 Learn** tab. Send it to anyone. It is permanent, free, and nothing needs to be running
 on anybody's computer.
 
 A real-time tic tac toe game with as many rooms as you like. Two people play in
@@ -70,6 +70,9 @@ Be aware of these; they are the cost of having no server.
   untick "Show it in the room list" for a room that should stay invite-only.
 - **Rooms are not owned.** Anyone who opens the link joins the same room and can
   take a free seat.
+- **UNO hands are not secret.** The page only shows you your own cards, but every
+  hand travels in the shared game state, so someone opening the browser's
+  developer tools could peek. Again: fine for family.
 - **State lives in the last message**, not a database. If every player closes the
   tab and the broker drops the retained message, the scoreboard restarts.
 
@@ -103,6 +106,63 @@ summaries older than 90 seconds, and the last person to leave clears theirs.
 To move the household to a different family room, change `DEFAULT_ROOM` near
 the top of the script in `docs/index.html`. Codes are 4 characters from `A-Z`
 (no `I` or `O`) and `2-9`.
+
+## UNO tab
+
+**🃏 UNO** works like tic tac toe — a list of tables, invite links, no server —
+but each table seats **2 to 10 players**. Link straight to it with
+`https://1etech.github.io/family-tictactoe/#uno`.
+
+1. Type your name (it's shared with the tic tac toe tab). **UNO tables** lists
+   the family table (`CARD`) and every open table: who's sitting there, how
+   many of 10 seats are taken, and whether a round is going.
+2. **➕ Start a new table** gives a fresh code; **Table options** names it and
+   hides it from the list. **📨 Invite** shares `…/?uno=K7QM#uno`, which takes
+   whoever opens it straight to that table.
+3. Up to 10 people sit down automatically; anyone after that watches. Once two
+   or more are seated, anyone at the table taps **🃏 Deal the cards**. People
+   who arrive mid-round get a seat and are dealt in next round.
+
+**📖 How to play** (on the table list) and **📖 Rules** (at a table) show the
+rules as one picture, `docs/uno/rules.png`, with a button to save it. Share
+`https://1etech.github.io/family-tictactoe/uno/rules.png` in the family chat
+too. The picture is drawn from `tools/uno-rules.html`; after editing that, run
+`node tools/uno-rules-image.mjs` (needs Playwright) and bump the UNO `?v=`.
+
+The rules are the standard ones:
+
+- 108 cards, 7 each. Match the top card's colour, number or symbol, or play a
+  wild and choose the colour. Can't or don't want to? Tap the draw pile: a
+  playable card can go straight down (or **Keep it**), otherwise the turn passes.
+- **Skip**, **Reverse** (a skip with two players), **Draw Two**, **Wild** and
+  **Wild Draw Four**, which is only allowed when you hold nothing of the colour
+  in play (the page enforces it, so there's no challenge). No stacking.
+- A wild is never the first card; a first Skip, Reverse or Draw Two acts on the
+  first player as usual.
+- Down to two cards? Tap **📣 UNO!** before (or right after) playing. Forget,
+  and anyone can tap **🫵 Catch** before the next player moves: you draw 2.
+- Going out scores the cards left in everyone's hands (numbers face value,
+  action cards 20, wilds 50). First to **500** wins; **🃏 New game** resets.
+- The draw pile is reshuffled from the played cards when it runs out.
+
+If the player whose turn it is goes quiet for about 20 seconds, the others get
+a **Skip** button for them (they draw one and the turn moves on). After two
+minutes away, or on **← Tables**, they leave the table and their cards go to the
+bottom of the draw pile. If fewer than two are left the round is called off.
+
+Each browser at the table holds the whole game and checks every move with
+`docs/uno/rules.js` before sending it. If two people change the game at the
+same moment (say, a chat line and a move), the lower id wins as in tic tac toe,
+and the other browser redoes its change on top, so nothing is lost.
+
+| File | What it does |
+| --- | --- |
+| `docs/uno/rules.js` | The deck, every rule, scoring, joining and leaving. No page or network code. |
+| `docs/uno/uno.js` | The tab: table list, syncing through the broker, the table and your hand. |
+| `docs/uno/uno.css` | Styles, including the cards. |
+| `docs/uno/rules.png` | The rules picture, made from `tools/uno-rules.html` by `tools/uno-rules-image.mjs`. |
+
+When an UNO file changes, bump its `?v=` number in `index.html`.
 
 ## Learn tab
 
@@ -227,10 +287,15 @@ browsers don't mix old and new copies.
 npm run preview     # serve docs/ at http://127.0.0.1:8790
 npm run test:sync   # two clients, real broker, full protocol
 npm run opponent ABCD "Cousin"   # a bot that joins room ABCD and plays
+npm run test:uno    # every UNO rule, plus 3000 random games with 2-10 players
 npm run test:learn  # checks thousands of generated questions in every topic, plus points/badges/backup
 npm run test:learn-sync  # several pretend devices syncing through the store under wrangler dev
 npm run dev:sync    # the store at http://127.0.0.1:8791; set localStorage "learn:sync-url" to http://127.0.0.1:8791/sync to use it
 ```
+
+To try UNO against a local broker instead of the public ones, set
+`localStorage["uno:broker"]` to its WebSocket address (e.g.
+`ws://127.0.0.1:8883/mqtt`) and reload.
 
 `test:sync` covers retained-state handover, seating, a full round, the rematch,
 the version/publisher tiebreak under a deliberate conflict, and a late spectator.
